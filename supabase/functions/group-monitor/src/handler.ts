@@ -195,7 +195,7 @@ async function handlePrivateMessage(m:Message){
  if(!m.from||m.from.is_bot)return;
  const text=m.text?.trim()??"";
  if(!text.startsWith("/"))return broadcastFromOwner(m);
- const cmd=text.split(/\\s+/)[0].split("@")[0].toLowerCase();
+ const cmd=text.split(/\s+/)[0].split("@")[0].toLowerCase();
  if(cmd==="/start"||cmd==="/help")return sendMessage(m.chat.id,`👋 SELAMAT DATANG DI GROUP MONITOR
 ━━━━━━━━━━━━━━━━
 
