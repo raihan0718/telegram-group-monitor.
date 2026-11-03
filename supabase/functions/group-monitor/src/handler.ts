@@ -43,7 +43,7 @@ async function broadcastFromOwner(m:Message){
 function displayName(x:{username?:string|null;first_name:string}){return x.username?"@"+x.username:x.first_name;}
 function parseDuration(input:string|undefined):number|null{
  if(!input)return null;
- const match=input.trim().match(/^(\\d+(?:\\.\\d+)?)\\s*(minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|w|months?|mos?|mo|M|years?|yrs?|y|Y)$/i);
+ const match=input.trim().match(/^(\d+(?:\.\d+)?)\s*(minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|w|months?|mos?|mo|M|years?|yrs?|y|Y)$/i);
  if(!match)return null;
  const amount=Number(match[1]),unit=match[2];
  if(!Number.isFinite(amount)||amount<=0)return null;
@@ -73,13 +73,13 @@ async function showSettings(chatId:number){
  return sendMessage(chatId,`⚙️ PENGATURAN GRUP
 
 Target minimal: ${s.min_messages} pesan
-Periode penilaian: ${s.evaluation_days} hari
-Toleransi member baru: ${s.newcomer_grace_days} hari
+Periode penilaian: ${durationLabel(s.evaluation_seconds)}
+Toleransi member baru: ${durationLabel(s.newcomer_grace_seconds)}
 
 Ubah manual:
-/setmin 10|20|30|50|100
-/setperiod 3|7|14|30
-/setgrace 3|7|14|30`);
+/setmin 25
+/setperiod 1 menit / 1D / 1M / 1Y
+/setgrace 1 menit / 1D / 1M / 1Y`);
 }
 async function showTest(chatId:number){
  const s=await getGroupSettings(chatId);
@@ -117,12 +117,18 @@ async function handleCommand(m:Message){
  if(cmd==="/settings") {if(!await requireAdmin(m))return;return showSettings(chatId);}
  if(["/setmin","/setperiod","/setgrace","/autokick"].includes(cmd)){if(!await requireAdmin(m))return;}
  if(cmd==="/setmin"||cmd==="/setperiod"||cmd==="/setgrace"){
-  const value=Number(arg),kind=cmd==="/setmin"?"min":cmd==="/setperiod"?"period":"grace";
-  const allowed=kind==="min"?[10,20,30,50,100]:[3,7,14,30];
-  if(!allowed.includes(value))return sendMessage(chatId,kind==="min"?"Format: /setmin 10|20|30|50|100":"Format: "+(kind==="period"?"/setperiod 3|7|14|30":"/setgrace 3|7|14|30"));
-  const field=kind==="min"?"min_messages":kind==="period"?"evaluation_days":"newcomer_grace_days";
-  await updateGroupSetting(chatId,field,value);
-  return sendMessage(chatId,`✅ Pengaturan disimpan.\n${field}: ${value}${kind==="min"?" pesan":kind==="period"?" hari":" hari"}`);
+  const kind=cmd==="/setmin"?"min":cmd==="/setperiod"?"period":"grace";
+  if(kind==="min"){
+   const value=Number(arg);
+   if(!Number.isSafeInteger(value)||value<0||value>2147483647)return sendMessage(chatId,"Format: /setmin <jumlah pesan> (angka bulat 0 atau lebih)");
+   await updateGroupSetting(chatId,"min_messages",value);
+   return sendMessage(chatId,`✅ Target minimal diperbarui: ${value} pesan.`);
+  }
+  const seconds=parseDuration(arg);
+  if(seconds===null)return sendMessage(chatId,"Format durasi: /setperiod 1 menit, /setperiod 1h, /setperiod 1D, /setperiod 1M, /setperiod 1Y. Berlaku juga untuk /setgrace. M = bulan, m = menit.");
+  const field=kind==="period"?"evaluation_seconds":"newcomer_grace_seconds";
+  await updateGroupSetting(chatId,field,seconds);
+  return sendMessage(chatId,`✅ ${kind==="period"?"Periode penilaian":"Toleransi member baru"} diperbarui: ${durationLabel(seconds)}.`);
  }
  if(cmd==="/test")return showTest(chatId);
  if(cmd==="/kickpreview")return showKickPreview(chatId);
