@@ -6,6 +6,20 @@ async function call(method:string,payload:Record<string,unknown>){
   if(!response.ok||!result.ok) throw new Error(`telegram_${method}_failed:${response.status}:${JSON.stringify(result)}`);
   return result.result;
 }
+export async function setGroupCommands(){
+  return call("setMyCommands",{
+    commands:[
+      {command:"start",description:"Buka menu utama"},
+      {command:"help",description:"Panduan penggunaan bot"},
+      {command:"settings",description:"Atur konfigurasi grup"},
+      {command:"report",description:"Lihat ringkasan aktivitas grup"},
+      {command:"top",description:"Lihat 10 anggota teraktif"},
+      {command:"inactive",description:"Lihat anggota yang tidak aktif"},
+      {command:"inactiveperson",description:"Lihat anggota yang belum memenuhi target"}
+    ],
+    scope:{type:"all_group_chats"}
+  });
+}
 export async function sendMessage(chatId:number,text:string,replyMarkup?:InlineKeyboard){
   return call("sendMessage",{chat_id:chatId,text,disable_web_page_preview:true,...(replyMarkup?{reply_markup:replyMarkup}:{})});
 }
