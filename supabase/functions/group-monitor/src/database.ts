@@ -18,3 +18,8 @@ export async function getMembers(chatId:number) {
     user_id:number; username:string|null; first_name:string; total_messages:number; last_seen_at:string;
   }>;
 }
+
+export async function getMonitoredGroupIds(): Promise<number[]> {
+  const rows = await rest("group_members?select=chat_id&limit=10000") as Array<{chat_id:number}>;
+  return [...new Set(rows.map(row => Number(row.chat_id)))];
+}
