@@ -32,3 +32,8 @@ export async function isGroupAdmin(chatId:number,userId:number):Promise<boolean>
   const result=await call("getChatMember",{chat_id:chatId,user_id:userId});
   return result.status==="creator"||result.status==="administrator";
 }
+
+export async function kickMember(chatId:number,userId:number){
+  await call("banChatMember",{chat_id:chatId,user_id:userId});
+  return call("unbanChatMember",{chat_id:chatId,user_id:userId,only_if_banned:true});
+}
