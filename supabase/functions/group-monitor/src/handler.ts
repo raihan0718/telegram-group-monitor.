@@ -1,5 +1,5 @@
-import { getCandidates, getGroupSettings, getMembers, getMonitoredGroupIds, recordMemberJoin, recordMessage, updateGroupSetting } from "./database.ts";
-import { answerCallbackQuery, editMessageText, isGroupAdmin, sendMessage } from "./telegram.ts";
+import { getCandidates, getGroupSettings, getMembers, getMonitoredGroupIds, getTestCandidates, recordMemberJoin, recordMessage, updateGroupSetting } from "./database.ts";
+import { answerCallbackQuery, editMessageText, isGroupAdmin, kickMember, sendMessage } from "./telegram.ts";
 type User={id:number;is_bot?:boolean;username?:string;first_name?:string;last_name?:string};
 type Chat={id:number;type:string;title?:string};
 type Message={message_id:number;date:number;chat:Chat;from?:User;text?:string;new_chat_members?:User[]};
@@ -7,7 +7,7 @@ type Callback={id:string;data?:string;from:User;message?:Message};
 type ChatMemberUpdate={chat:Chat;new_chat_member:{status:string;user:User};old_chat_member:{status:string;user:User}};
 type Update={message?:Message;callback_query?:Callback;my_chat_member?:ChatMemberUpdate};
 const ownerId=()=>Deno.env.get("OWNER_TELEGRAM_ID")?.trim()||Deno.env.get("TELEGRAM_ADMIN_ID")?.trim()||Deno.env.get("TELEGRAM_ADMIN_IDS")?.split(",")[0]?.trim();
-const mainMenu=()=>({inline_keyboard:[[{text:"▶️ Mulai Pembersihan",callback_data:"menu:clean"}],[{text:"🧪 Test",callback_data:"menu:test"},{text:"⚙️ Settings",callback_data:"menu:settings"}],[{text:"❔ Help",callback_data:"menu:help"}]]});
+const mainMenu=()=>({inline_keyboard:[[{text:"▶️ Mulai Pembersihan",callback_data:"menu:clean"}],[{text:"🧪 Test",callback_data:"menu:test"},{text:"⚙️ Settings",callback_data:"menu:settings"}],[{text:"🧹 Auto Kick",callback_data:"menu:kick"}],[{text:"❔ Help",callback_data:"menu:help"}]]});
 const helpText="📊 GROUP MONITOR — PANDUAN\n\n/start@UsernameBot — buka menu utama\n▶️ Mulai Pembersihan — periksa Inactive Person sesuai aturan grup\n⚙️ Settings — atur target pesan, periode penilaian, dan toleransi anggota baru\n/report — ringkasan aktivitas grup\n/top — 10 anggota teraktif\n/inactive — anggota tanpa pesan selama periode inaktif\n/inactiveperson — anggota yang belum memenuhi target pesan\n\n📌 Pesan hanya dihitung sejak bot bergabung. Pesan sebelumnya tidak ikut dihitung. Anggota baru mendapat masa toleransi. Pastikan bot dapat membaca pesan grup.\n\nContact Person: @Ipnexoraa";
 function settingsKeyboard(s:{min_messages:number;evaluation_days:number;newcomer_grace_days:number}){
  return {inline_keyboard:[
@@ -26,30 +26,36 @@ async function showSettings(chatId:number,messageId?:number){
 }
 
 async function showTestPanel(chatId:number,messageId:number){
- const [s,members,candidates]=await Promise.all([getGroupSettings(chatId),getMembers(chatId),getCandidates(chatId,await getGroupSettings(chatId))]);
+ const s=await getGroupSettings(chatId);
+ const [members,candidates]=await Promise.all([getMembers(chatId),getTestCandidates(chatId,s)]);
  const total=members.reduce((sum,x)=>sum+x.total_messages,0);
- const text=`🧪 TEST GROUP MONITOR
+ const text=`🧪 TEST CEPAT (TOLERANSI 1 MENIT)
 
-Status database: ✅ Terhubung
+Database: ✅ Terhubung
 Anggota tercatat: ${members.length}
-Pesan tercatat: ${total}
+Total pesan: ${total}
 
-⚙️ KONFIGURASI AKTIF
-Target minimal: ${s.min_messages} pesan
-Periode penilaian: ${s.evaluation_days} hari
-Toleransi anggota baru: ${s.newcomer_grace_days} hari
+Target asli: ${s.min_messages} pesan
+Periode hitung: ${s.evaluation_days} hari
+Toleransi mode test: 1 menit
 
-🔎 HASIL PEMERIKSAAN
-Inactive Person saat ini: ${candidates.length} anggota
+Sudah terdeteksi: ${candidates.length} anggota
+${candidates.slice(0,15).map(x=>`• ${x.username?"@"+x.username:x.first_name} — ${x.period_messages}/${s.min_messages} pesan`).join("\n")||"Belum ada. Anggota baru akan lolos toleransi sampai 1 menit."}
 
-📌 CARA TES NYATA
-1. Gunakan akun kedua yang baru bergabung.
-2. Pastikan bot mencatat pesan akun tersebut.
-3. Selama masa toleransi, akun tidak boleh masuk Inactive Person.
-4. Setelah toleransi berakhir, akun dengan pesan di bawah target baru boleh masuk daftar.
+Tes ini hanya membaca data. Pengaturan asli tidak diubah.`;
+ return editMessageText(chatId,messageId,text,{inline_keyboard:[[{text:"🔄 Tes ulang",callback_data:"menu:test"}],[{text:"🧹 Buka Auto Kick",callback_data:"menu:kick"}],[{text:"⬅️ Kembali",callback_data:"menu:home"}]]});
+}
+async function showKickPreview(chatId:number,messageId:number){
+ const s=await getGroupSettings(chatId),rows=await getCandidates(chatId,s);
+ const text=`🧹 AUTO KICK — PRATINJAU
 
-Catatan: menu ini hanya memeriksa data dan konfigurasi. Tidak mengubah waktu atau data anggota.`;
- return editMessageText(chatId,messageId,text,{inline_keyboard:[[{text:"🔄 Jalankan tes ulang",callback_data:"menu:test"}],[{text:"⬅️ Kembali",callback_data:"menu:home"}]]});
+Aturan aktif: kurang dari ${s.min_messages} pesan dalam ${s.evaluation_days} hari, setelah toleransi ${s.newcomer_grace_days} hari.
+
+Calon yang memenuhi aturan: ${rows.length}
+${rows.slice(0,30).map(x=>`• ${x.username?"@"+x.username:x.first_name} — ${x.period_messages}/${s.min_messages}`).join("\n")||"Tidak ada anggota yang perlu dikeluarkan."}
+
+Belum ada yang dikeluarkan. Tekan konfirmasi untuk menjalankan kick pada daftar ini.`;
+ return editMessageText(chatId,messageId,text,{inline_keyboard:rows.length?[[{text:"⚠️ Konfirmasi Auto Kick",callback_data:"kick:confirm"}],[{text:"🔄 Muat ulang",callback_data:"menu:kick"}],[{text:"⬅️ Kembali",callback_data:"menu:home"}]]:[[{text:"⬅️ Kembali",callback_data:"menu:home"}]]});
 }
 
 async function broadcastFromOwner(m:Message){
@@ -81,7 +87,15 @@ async function handleCallback(q:Callback){
  if(data==="noop")return answerCallbackQuery(q.id);
  if(data==="menu:home"){await editMessageText(m.chat.id,m.message_id,"📊 GROUP MONITOR\nPilih tindakan yang ingin dilakukan.\n\nContact Person: @Ipnexoraa",mainMenu());return answerCallbackQuery(q.id);}
  if(data==="menu:settings"){await showSettings(m.chat.id,m.message_id);return answerCallbackQuery(q.id);}
- if(data==="menu:test"){await showTestPanel(m.chat.id,m.message_id);return answerCallbackQuery(q.id,"Pemeriksaan selesai.");}
+ if(data==="menu:test"){await showTestPanel(m.chat.id,m.message_id);return answerCallbackQuery(q.id,"Tes 1 menit diperbarui.");}
+ if(data==="menu:kick"){await showKickPreview(m.chat.id,m.message_id);return answerCallbackQuery(q.id);}
+ if(data==="kick:confirm"){
+  const s=await getGroupSettings(m.chat.id),rows=await getCandidates(m.chat.id,s);
+  let done=0,failed=0;
+  for(const member of rows.slice(0,50)){try{await kickMember(m.chat.id,member.user_id);done++;}catch{failed++;}}
+  await editMessageText(m.chat.id,m.message_id,`🧹 AUTO KICK SELESAI\nBerhasil dikeluarkan: ${done}\nGagal: ${failed}\n\nDaftar diproses maksimal 50 akun. Pastikan bot punya izin ban members.`,{inline_keyboard:[[{text:"⬅️ Kembali",callback_data:"menu:home"}]]});
+  return answerCallbackQuery(q.id,"Proses selesai.");
+ }
  if(data==="menu:help"){await editMessageText(m.chat.id,m.message_id,helpText,{inline_keyboard:[[{text:"⬅️ Kembali",callback_data:"menu:home"}]]});return answerCallbackQuery(q.id);}
  if(data==="menu:clean"||data==="menu:inactiveperson"){
   const s=await getGroupSettings(m.chat.id),rows=await getCandidates(m.chat.id,s);
