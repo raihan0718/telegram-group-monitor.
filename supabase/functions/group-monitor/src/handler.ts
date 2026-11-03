@@ -1,5 +1,5 @@
 import { getCandidates, getGroupSettings, getMembers, getMonitoredGroupIds, recordMemberJoin, recordMessage, updateGroupSetting } from "./database.ts";
-import { answerCallbackQuery, editMessageText, isGroupAdmin, sendMessage, setGroupCommands } from "./telegram.ts";
+import { answerCallbackQuery, editMessageText, isGroupAdmin, sendMessage } from "./telegram.ts";
 type User={id:number;is_bot?:boolean;username?:string;first_name?:string;last_name?:string};
 type Chat={id:number;type:string;title?:string};
 type Message={message_id:number;date:number;chat:Chat;from?:User;text?:string;new_chat_members?:User[]};
@@ -7,7 +7,7 @@ type Callback={id:string;data?:string;from:User;message?:Message};
 type ChatMemberUpdate={chat:Chat;new_chat_member:{status:string;user:User};old_chat_member:{status:string;user:User}};
 type Update={message?:Message;callback_query?:Callback;my_chat_member?:ChatMemberUpdate};
 const ownerId=()=>Deno.env.get("OWNER_TELEGRAM_ID")?.trim()||Deno.env.get("TELEGRAM_ADMIN_ID")?.trim()||Deno.env.get("TELEGRAM_ADMIN_IDS")?.split(",")[0]?.trim();
-const mainMenu=()=>({inline_keyboard:[[{text:"▶️ Mulai Pembersihan",callback_data:"menu:clean"}],[{text:"⚙️ Settings",callback_data:"menu:settings"},{text:"❔ Help",callback_data:"menu:help"}]]});
+const mainMenu=()=>({inline_keyboard:[[{text:"▶️ Mulai Pembersihan",callback_data:"menu:clean"}],[{text:"🧪 Test",callback_data:"menu:test"},{text:"⚙️ Settings",callback_data:"menu:settings"}],[{text:"❔ Help",callback_data:"menu:help"}]]});
 const helpText="📊 GROUP MONITOR — PANDUAN\n\n/start@UsernameBot — buka menu utama\n▶️ Mulai Pembersihan — periksa Inactive Person sesuai aturan grup\n⚙️ Settings — atur target pesan, periode penilaian, dan toleransi anggota baru\n/report — ringkasan aktivitas grup\n/top — 10 anggota teraktif\n/inactive — anggota tanpa pesan selama periode inaktif\n/inactiveperson — anggota yang belum memenuhi target pesan\n\n📌 Pesan hanya dihitung sejak bot bergabung. Pesan sebelumnya tidak ikut dihitung. Anggota baru mendapat masa toleransi. Pastikan bot dapat membaca pesan grup.\n\nContact Person: @Ipnexoraa";
 function settingsKeyboard(s:{min_messages:number;evaluation_days:number;newcomer_grace_days:number}){
  return {inline_keyboard:[
@@ -24,6 +24,34 @@ async function showSettings(chatId:number,messageId?:number){
  const s=await getGroupSettings(chatId),text="⚙️ PENGATURAN GROUP MONITOR\nPilih nilai yang ingin diterapkan. Pengaturan berlaku untuk grup ini.";
  return messageId?editMessageText(chatId,messageId,text,settingsKeyboard(s)):sendMessage(chatId,text,settingsKeyboard(s));
 }
+
+async function showTestPanel(chatId:number,messageId:number){
+ const [s,members,candidates]=await Promise.all([getGroupSettings(chatId),getMembers(chatId),getCandidates(chatId,await getGroupSettings(chatId))]);
+ const total=members.reduce((sum,x)=>sum+x.total_messages,0);
+ const text=\`🧪 TEST GROUP MONITOR
+
+Status database: ✅ Terhubung
+Anggota tercatat: \${members.length}
+Pesan tercatat: \${total}
+
+⚙️ KONFIGURASI AKTIF
+Target minimal: \${s.min_messages} pesan
+Periode penilaian: \${s.evaluation_days} hari
+Toleransi anggota baru: \${s.newcomer_grace_days} hari
+
+🔎 HASIL PEMERIKSAAN
+Inactive Person saat ini: \${candidates.length} anggota
+
+📌 CARA TES NYATA
+1. Gunakan akun kedua yang baru bergabung.
+2. Pastikan bot mencatat pesan akun tersebut.
+3. Selama masa toleransi, akun tidak boleh masuk Inactive Person.
+4. Setelah toleransi berakhir, akun dengan pesan di bawah target baru boleh masuk daftar.
+
+Catatan: menu ini hanya memeriksa data dan konfigurasi. Tidak mengubah waktu atau data anggota.\`;
+ return editMessageText(chatId,messageId,text,{inline_keyboard:[[{text:"🔄 Jalankan tes ulang",callback_data:"menu:test"}],[{text:"⬅️ Kembali",callback_data:"menu:home"}]]});
+}
+
 async function broadcastFromOwner(m:Message){
  const id=ownerId();if(!id||String(m.from?.id)!==id||!m.text?.trim())return;
  const groups=await getMonitoredGroupIds();if(!groups.length)return sendMessage(m.chat.id,"Belum ada grup yang tercatat.");
@@ -32,7 +60,6 @@ async function broadcastFromOwner(m:Message){
 }
 async function handleCommand(m:Message){
  if(!m.from)return;const cmd=(m.text??"").trim().split(/\s+/)[0].split("@")[0].toLowerCase(),chatId=m.chat.id;
- if(cmd==="/start"){try{await setGroupCommands();}catch(error){console.error("set_group_commands_failed",error);}}
  if(cmd==="/start")return sendMessage(chatId,"📊 GROUP MONITOR\nPilih tindakan yang ingin dilakukan.\n\nContact Person: @Ipnexoraa",mainMenu());
  if(cmd==="/help")return sendMessage(chatId,helpText);
  if(cmd==="/settings"){try{if(!await isGroupAdmin(chatId,m.from.id))return sendMessage(chatId,"⛔ Settings hanya bisa digunakan admin grup.");}catch{return sendMessage(chatId,"⚠️ Gagal memverifikasi admin. Pastikan bot menjadi admin grup.");}return showSettings(chatId);}
@@ -54,6 +81,7 @@ async function handleCallback(q:Callback){
  if(data==="noop")return answerCallbackQuery(q.id);
  if(data==="menu:home"){await editMessageText(m.chat.id,m.message_id,"📊 GROUP MONITOR\nPilih tindakan yang ingin dilakukan.\n\nContact Person: @Ipnexoraa",mainMenu());return answerCallbackQuery(q.id);}
  if(data==="menu:settings"){await showSettings(m.chat.id,m.message_id);return answerCallbackQuery(q.id);}
+ if(data==="menu:test"){await showTestPanel(m.chat.id,m.message_id);return answerCallbackQuery(q.id,"Pemeriksaan selesai.");}
  if(data==="menu:help"){await editMessageText(m.chat.id,m.message_id,helpText,{inline_keyboard:[[{text:"⬅️ Kembali",callback_data:"menu:home"}]]});return answerCallbackQuery(q.id);}
  if(data==="menu:clean"||data==="menu:inactiveperson"){
   const s=await getGroupSettings(m.chat.id),rows=await getCandidates(m.chat.id,s);
