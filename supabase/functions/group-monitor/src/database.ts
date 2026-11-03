@@ -25,6 +25,9 @@ export async function recordMemberJoin(m:{chatId:number;userId:number;username?:
 export async function getCandidates(chatId:number,s:GroupSettings){
   return await rest("rpc/get_group_inactive_people",{method:"POST",body:JSON.stringify({p_chat_id:chatId,p_min_messages:s.min_messages,p_evaluation_days:s.evaluation_days,p_grace_days:s.newcomer_grace_days})}) as Array<{user_id:number;username:string|null;first_name:string;period_messages:number;joined_at:string}>;
 }
+export async function getTestCandidates(chatId:number,s:GroupSettings){
+  return await rest("rpc/get_group_test_inactive_people",{method:"POST",body:JSON.stringify({p_chat_id:chatId,p_min_messages:s.min_messages,p_evaluation_days:s.evaluation_days,p_grace_minutes:1})}) as Array<{user_id:number;username:string|null;first_name:string;period_messages:number;joined_at:string}>;
+}
 export async function recordMessage(m: { chatId:number; userId:number; username?:string; firstName:string; lastName?:string; messageId:number; date:string }) {
   return rest("rpc/record_group_message", { method:"POST", body:JSON.stringify({
     p_chat_id:m.chatId,p_user_id:m.userId,p_username:m.username??null,p_first_name:m.firstName,
