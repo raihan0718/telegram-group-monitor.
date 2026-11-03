@@ -1,0 +1,2 @@
+[functions.group-monitor]
+verify_jwt = false
