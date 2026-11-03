@@ -7,6 +7,24 @@ async function rest(path: string, init: RequestInit = {}) {
   if (!response.ok) throw new Error(`database_error:${response.status}:${await response.text()}`);
   return response.status === 204 ? null : response.json();
 }
+export type GroupSettings = { min_messages:number; evaluation_days:number; newcomer_grace_days:number };
+const defaults:GroupSettings={min_messages:20,evaluation_days:7,newcomer_grace_days:7};
+export async function getGroupSettings(chatId:number):Promise<GroupSettings>{
+  const rows=await rest(`group_settings?chat_id=eq.${chatId}&select=min_messages,evaluation_days,newcomer_grace_days&limit=1`) as GroupSettings[];
+  if(rows[0]) return rows[0];
+  await rest("group_settings",{method:"POST",headers:{Prefer:"resolution=ignore-duplicates,return=minimal"},body:JSON.stringify({chat_id:chatId})});
+  return defaults;
+}
+export async function updateGroupSetting(chatId:number,field:"min_messages"|"evaluation_days"|"newcomer_grace_days",value:number){
+  const body={chat_id:chatId,[field]:value,updated_at:new Date().toISOString()};
+  return rest("group_settings",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(body)});
+}
+export async function recordMemberJoin(m:{chatId:number;userId:number;username?:string;firstName:string;lastName?:string;joinedAt:string}){
+  return rest("rpc/record_group_member_join",{method:"POST",body:JSON.stringify({p_chat_id:m.chatId,p_user_id:m.userId,p_username:m.username??null,p_first_name:m.firstName,p_last_name:m.lastName??null,p_joined_at:m.joinedAt})});
+}
+export async function getCandidates(chatId:number,s:GroupSettings){
+  return await rest("rpc/get_group_inactive_people",{method:"POST",body:JSON.stringify({p_chat_id:chatId,p_min_messages:s.min_messages,p_evaluation_days:s.evaluation_days,p_grace_days:s.newcomer_grace_days})}) as Array<{user_id:number;username:string|null;first_name:string;period_messages:number;joined_at:string}>;
+}
 export async function recordMessage(m: { chatId:number; userId:number; username?:string; firstName:string; lastName?:string; messageId:number; date:string }) {
   return rest("rpc/record_group_message", { method:"POST", body:JSON.stringify({
     p_chat_id:m.chatId,p_user_id:m.userId,p_username:m.username??null,p_first_name:m.firstName,
@@ -18,7 +36,6 @@ export async function getMembers(chatId:number) {
     user_id:number; username:string|null; first_name:string; total_messages:number; last_seen_at:string;
   }>;
 }
-
 export async function getMonitoredGroupIds(): Promise<number[]> {
   const rows = await rest("group_members?select=chat_id&limit=10000") as Array<{chat_id:number}>;
   return [...new Set(rows.map(row => Number(row.chat_id)))];
