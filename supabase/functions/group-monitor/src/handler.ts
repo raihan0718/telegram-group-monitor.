@@ -191,6 +191,32 @@ ${rows.map(x=>`• ${displayName(x)}`).join("\n")||"✅ Tidak ada anggota yang t
 ⏱ Periode penilaian  ${durationLabel(s.evaluation_seconds)}
 🆕 Toleransi member   ${durationLabel(s.newcomer_grace_seconds)}`);}
 }
+async function handlePrivateMessage(m:Message){
+ if(!m.from||m.from.is_bot)return;
+ const text=m.text?.trim()??"";
+ if(!text.startsWith("/"))return broadcastFromOwner(m);
+ const cmd=text.split(/\\s+/)[0].split("@")[0].toLowerCase();
+ if(cmd==="/start"||cmd==="/help")return sendMessage(m.chat.id,`👋 SELAMAT DATANG DI GROUP MONITOR
+━━━━━━━━━━━━━━━━
+
+Bot ini membantu admin memantau aktivitas anggota grup, melihat laporan, dan mengelola Auto Kick berdasarkan aturan grup.
+
+📌 CARA PAKAI
+1. Tambahkan bot ke grup Telegram.
+2. Berikan izin admin yang diperlukan.
+3. Gunakan perintah langsung di grup tersebut.
+
+⚠️ KHUSUS PERINTAH GRUP
+Pengaturan dan pemantauan hanya bisa dijalankan di dalam grup. Buka grup yang ingin dikelola, lalu kirim /help untuk melihat daftar perintah.
+
+Contoh: /settings untuk melihat konfigurasi grup.
+
+Butuh bantuan? Hubungi @Ipnexoraa`);
+ if(cmd==="/settings")return sendMessage(m.chat.id,"⚙️ PERINTAH KHUSUS GRUP\n━━━━━━━━━━━━━━━━\n/settings hanya bisa digunakan di dalam grup Telegram.\n\nBuka grup yang ingin dikelola, lalu kirim /settings di sana.");
+ const groupOnly=["/setmin","/setperiod","/setgrace","/report","/top","/inactive","/inactiveperson","/candidates","/kickpreview","/autokick"];
+ if(groupOnly.includes(cmd))return sendMessage(m.chat.id,"📍 PERINTAH INI HANYA BERLAKU DI GRUP\n━━━━━━━━━━━━━━━━\nPerintah tersebut harus dikirim langsung di grup yang ingin dikelola.\n\nBuka grup tujuan, lalu jalankan perintah di sana. Ketik /help di grup untuk melihat panduan lengkap.");
+ return sendMessage(m.chat.id,"Perintah tidak dikenali. Ketik /help untuk melihat panduan penggunaan bot.");
+}
 async function onboarding(chatId:number){return sendMessage(chatId,`👋 GROUP MONITOR AKTIF
 ━━━━━━━━━━━━━━━━
 
@@ -207,7 +233,7 @@ export async function handleUpdate(update:Update){
   return;
  }
  const m=update.message;if(!m)return;
- if(m.chat.type==="private"){if(m.from&&!m.from.is_bot)return broadcastFromOwner(m);return;}
+ if(m.chat.type==="private")return handlePrivateMessage(m);
  if(m.chat.type!=="group"&&m.chat.type!=="supergroup")return;
  if(m.new_chat_members?.length){
   for(const u of m.new_chat_members){if(!u.is_bot)await recordMemberJoin({chatId:m.chat.id,userId:u.id,username:u.username,firstName:u.first_name??"",lastName:u.last_name,joinedAt:new Date(m.date*1000).toISOString()});}
