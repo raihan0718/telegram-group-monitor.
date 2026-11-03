@@ -1,21 +1,33 @@
-import { getMembers, recordMessage } from "./database.ts";
+import { getMembers, getMonitoredGroupIds, recordMessage } from "./database.ts";
 import { isGroupAdmin, sendMessage } from "./telegram.ts";
 type User = { id:number; is_bot?:boolean; username?:string; first_name?:string; last_name?:string };
 type Message = { message_id:number; date:number; chat:{id:number;type:string}; from?:User; text?:string };
 const envNumber=(name:string,fallback:number)=>Number(Deno.env.get(name)??fallback);
+const ownerId=()=>Deno.env.get("OWNER_TELEGRAM_ID")?.trim() || Deno.env.get("TELEGRAM_ADMIN_IDS")?.split(",")[0]?.trim();
 const label=(m:{username:string|null;first_name:string;total_messages:number},i:number)=>`${i+1}. ${m.username?"@"+m.username:m.first_name} — ${m.total_messages} pesan`;
+async function broadcastFromOwner(m:Message) {
+  const id=ownerId();
+  if(!id || String(m.from?.id)!==id || !m.text?.trim()) return;
+  const groups=await getMonitoredGroupIds();
+  if(groups.length===0) return sendMessage(m.chat.id,"Belum ada grup yang tercatat. Tambahkan bot ke grup dan tunggu pesan anggota masuk.");
+  let success=0, failed=0;
+  for(const chatId of groups) {
+    try { await sendMessage(chatId,m.text); success++; }
+    catch(error) { failed++; console.error("broadcast_failed",chatId,error); }
+  }
+  return sendMessage(m.chat.id,`Broadcast selesai.\\nBerhasil: ${success} grup\\nGagal: ${failed} grup`);
+}
 async function command(m:Message) {
-  const cmd=(m.text??"").trim().split(/\\s+/)[0].split("@")[0].toLowerCase(), chatId=m.chat.id;
+  const cmd=(m.text??"").trim().split(/\s+/)[0].split("@")[0].toLowerCase(), chatId=m.chat.id;
   if(!m.from) return;
   let admin = false;
-  try {
-    admin = await isGroupAdmin(chatId, m.from.id);
-  } catch (error) {
+  try { admin = await isGroupAdmin(chatId, m.from.id); }
+  catch (error) {
     console.error("admin_check_failed", error);
     return sendMessage(chatId, "⚠️ Gagal memverifikasi admin. Pastikan bot menjadi admin grup, lalu coba lagi.");
   }
   if(!admin) return sendMessage(chatId, "⛔ Perintah ini hanya bisa digunakan admin grup.");
-  if(cmd==="/help"||cmd==="/start") return sendMessage(chatId,"📊 Group Monitor\n/report — ringkasan aktivitas\n/top — 10 anggota teraktif\n/inactive — anggota tidak aktif\n/candidates — di bawah target");
+  if(cmd==="/help"||cmd==="/start") return sendMessage(chatId,"📊 Group Monitor\\n/report — ringkasan aktivitas\\n/top — 10 anggota teraktif\\n/inactive — anggota tidak aktif\\n/candidates — di bawah target");
   if(!["/report","/top","/inactive","/candidates"].includes(cmd)) return;
   const members=await getMembers(chatId), min=envNumber("MIN_MESSAGES",20), days=envNumber("INACTIVE_DAYS",7);
   if(cmd==="/top") return sendMessage(chatId,members.slice(0,10).map(label).join("\\n")||"Belum ada data.");
@@ -28,11 +40,13 @@ async function command(m:Message) {
     return sendMessage(chatId,rows.slice(0,50).map(x=>`• ${x.username?"@"+x.username:x.first_name}: ${x.total_messages}/${min}`).join("\\n")||"Semua anggota tercatat memenuhi target.");
   }
   const total=members.reduce((sum,x)=>sum+x.total_messages,0);
-  return sendMessage(chatId,`📊 Ringkasan grup\nAnggota tercatat: ${members.length}\nTotal pesan tercatat: ${total}\nTarget minimum: ${min} pesan\nPeriode inaktif: ${days} hari`);
+  return sendMessage(chatId,`📊 Ringkasan grup\\nAnggota tercatat: ${members.length}\\nTotal pesan tercatat: ${total}\\nTarget minimum: ${min} pesan\\nPeriode inaktif: ${days} hari`);
 }
 export async function handleUpdate(update:{message?:Message}) {
   const m=update.message;
-  if(!m||m.chat.type==="private"||!m.from||m.from.is_bot) return;
+  if(!m||!m.from||m.from.is_bot) return;
+  if(m.chat.type==="private") return await broadcastFromOwner(m);
+  if(m.chat.type!=="group" && m.chat.type!=="supergroup") return;
   if(m.text?.startsWith("/")) return await command(m);
   await recordMessage({chatId:m.chat.id,userId:m.from.id,username:m.from.username,firstName:m.from.first_name??"",lastName:m.from.last_name,messageId:m.message_id,date:new Date(m.date*1000).toISOString()});
 }
