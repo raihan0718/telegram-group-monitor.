@@ -32,4 +32,4 @@ jobs:
           test -n "$SUPABASE_ACCESS_TOKEN" || (echo "Missing GitHub secret SUPABASE_ACCESS_TOKEN" && exit 1)
           test -n "$SUPABASE_PROJECT_ID" || (echo "Missing GitHub secret SUPABASE_PROJECT_ID" && exit 1)
       - name: Deploy group-monitor
-        run: supabase functions deploy group-monitor --project-ref "$SUPABASE_PROJECT_ID" --yes
+        run: supabase functions deploy group-monitor --project-ref "$SUPABASE_PROJECT_ID" --no-verify-jwt --yes
