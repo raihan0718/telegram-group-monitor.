@@ -4,8 +4,11 @@ async function rest(path: string, init: RequestInit = {}) {
   const response = await fetch(`${base()}/rest/v1/${path}`, { ...init, headers: {
     apikey: key(), authorization: `Bearer ${key()}`, "content-type": "application/json", ...init.headers,
   }});
-  if (!response.ok) throw new Error(`database_error:${response.status}:${await response.text()}`);
-  return response.status === 204 ? null : response.json();
+  const responseText = await response.text();
+  if (!response.ok) throw new Error(`database_error:${response.status}:${responseText || response.statusText}`);
+  if (!responseText.trim()) return null;
+  try { return JSON.parse(responseText); }
+  catch { throw new Error(`database_invalid_json:${response.status}:${responseText.slice(0,300)}`); }
 }
 export type GroupSettings = { min_messages:number; evaluation_seconds:number; newcomer_grace_seconds:number };
 const defaults:GroupSettings={min_messages:20,evaluation_seconds:604800,newcomer_grace_seconds:604800};
