@@ -10,12 +10,12 @@ async function rest(path: string, init: RequestInit = {}) {
 export type GroupSettings = { min_messages:number; evaluation_days:number; newcomer_grace_days:number };
 const defaults:GroupSettings={min_messages:20,evaluation_days:7,newcomer_grace_days:7};
 export async function getGroupSettings(chatId:number):Promise<GroupSettings>{
-  const rows=await rest(`group_settings?chat_id=eq.${chatId}&select=min_messages,evaluation_days,newcomer_grace_days&limit=1`) as GroupSettings[];
+  const rows=await rest(`group_settings?chat_id=eq.${chatId}&select=min_messages,evaluation_seconds,newcomer_grace_seconds&limit=1`) as GroupSettings[];
   if(rows[0]) return rows[0];
   await rest("group_settings",{method:"POST",headers:{Prefer:"resolution=ignore-duplicates,return=minimal"},body:JSON.stringify({chat_id:chatId})});
   return defaults;
 }
-export async function updateGroupSetting(chatId:number,field:"min_messages"|"evaluation_days"|"newcomer_grace_days",value:number){
+export async function updateGroupSetting(chatId:number,field:"min_messages"|"evaluation_seconds"|"newcomer_grace_seconds",value:number){
   const body={chat_id:chatId,[field]:value,updated_at:new Date().toISOString()};
   return rest("group_settings",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(body)});
 }
@@ -27,7 +27,7 @@ export async function recordMemberJoin(m:{chatId:number;userId:number;username?:
   return rest("rpc/record_group_member_join",{method:"POST",body:JSON.stringify({p_chat_id:m.chatId,p_user_id:m.userId,p_username:m.username??null,p_first_name:m.firstName,p_last_name:m.lastName??null,p_joined_at:m.joinedAt})});
 }
 export async function getCandidates(chatId:number,s:GroupSettings){
-  return await rest("rpc/get_group_inactive_people",{method:"POST",body:JSON.stringify({p_chat_id:chatId,p_min_messages:s.min_messages,p_evaluation_days:s.evaluation_days,p_grace_days:s.newcomer_grace_days})}) as Array<{user_id:number;username:string|null;first_name:string;period_messages:number;joined_at:string}>;
+  return await rest("rpc/get_group_inactive_people",{method:"POST",body:JSON.stringify({p_chat_id:chatId,p_min_messages:s.min_messages,p_evaluation_seconds:s.evaluation_seconds,p_grace_seconds:s.newcomer_grace_seconds})}) as Array<{user_id:number;username:string|null;first_name:string;period_messages:number;joined_at:string}>;
 }
 export async function getTestCandidates(chatId:number,s:GroupSettings){
   return await rest("rpc/get_group_test_inactive_people",{method:"POST",body:JSON.stringify({p_chat_id:chatId,p_min_messages:s.min_messages,p_evaluation_minutes:1,p_grace_minutes:1})}) as Array<{user_id:number;username:string|null;first_name:string;period_messages:number;joined_at:string}>;
