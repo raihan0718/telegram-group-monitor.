@@ -7,8 +7,8 @@ async function rest(path: string, init: RequestInit = {}) {
   if (!response.ok) throw new Error(`database_error:${response.status}:${await response.text()}`);
   return response.status === 204 ? null : response.json();
 }
-export type GroupSettings = { min_messages:number; evaluation_days:number; newcomer_grace_days:number };
-const defaults:GroupSettings={min_messages:20,evaluation_days:7,newcomer_grace_days:7};
+export type GroupSettings = { min_messages:number; evaluation_seconds:number; newcomer_grace_seconds:number };
+const defaults:GroupSettings={min_messages:20,evaluation_seconds:604800,newcomer_grace_seconds:604800};
 export async function getGroupSettings(chatId:number):Promise<GroupSettings>{
   const rows=await rest(`group_settings?chat_id=eq.${chatId}&select=min_messages,evaluation_seconds,newcomer_grace_seconds&limit=1`) as GroupSettings[];
   if(rows[0]) return rows[0];
