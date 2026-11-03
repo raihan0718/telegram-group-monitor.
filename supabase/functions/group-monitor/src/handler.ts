@@ -136,7 +136,7 @@ async function handleCommand(m:Message){
   try{
    await updateGroupSetting(chatId,field,seconds);
    return sendMessage(chatId,`✅ ${kind==="period"?"Periode penilaian":"Toleransi member baru"} diperbarui: ${durationLabel(seconds)}.`);
-  }catch(error){console.error("duration_setting_failed",error);return sendMessage(chatId,"⚠️ Timer gagal disimpan. Kemungkinan migration flexible durations belum dijalankan di Supabase. Jalankan migration 20261103000700 dulu.");}
+  }catch(error){console.error("duration_setting_failed",error);const detail=(error instanceof Error?error.message:String(error)).slice(0,350);return sendMessage(chatId,`⚠️ Timer gagal disimpan. Detail error database:\n${detail}`);}
  }
  if(cmd==="/test")return showTest(chatId);
  if(cmd==="/kickpreview")return showKickPreview(chatId);
