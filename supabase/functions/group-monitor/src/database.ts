@@ -19,7 +19,11 @@ export async function updateGroupSetting(chatId:number,field:"min_messages"|"eva
   const body={chat_id:chatId,[field]:value,updated_at:new Date().toISOString()};
   return rest("group_settings",{method:"POST",headers:{Prefer:"resolution=merge-duplicates,return=minimal"},body:JSON.stringify(body)});
 }
-export async function migrateGroupChatId(oldChatId:number,newChatId:number){\n  if(oldChatId===newChatId)return;\n  return rest("rpc/migrate_group_chat_id",{method:"POST",body:JSON.stringify({p_old_chat_id:oldChatId,p_new_chat_id:newChatId})});\n}\nexport async function recordMemberJoin(m:{chatId:number;userId:number;username?:string;firstName:string;lastName?:string;joinedAt:string}){
+export async function migrateGroupChatId(oldChatId:number,newChatId:number){
+  if(oldChatId===newChatId)return;
+  return rest("rpc/migrate_group_chat_id",{method:"POST",body:JSON.stringify({p_old_chat_id:oldChatId,p_new_chat_id:newChatId})});
+}
+export async function recordMemberJoin(m:{chatId:number;userId:number;username?:string;firstName:string;lastName?:string;joinedAt:string}){
   return rest("rpc/record_group_member_join",{method:"POST",body:JSON.stringify({p_chat_id:m.chatId,p_user_id:m.userId,p_username:m.username??null,p_first_name:m.firstName,p_last_name:m.lastName??null,p_joined_at:m.joinedAt})});
 }
 export async function getCandidates(chatId:number,s:GroupSettings){
