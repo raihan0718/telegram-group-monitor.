@@ -34,7 +34,7 @@ export async function recordMessage(m: { chatId:number; userId:number; username?
     p_last_name:m.lastName??null,p_message_id:m.messageId,p_message_date:m.date,
   })});
 }
-export async function getMembers(chatId:number) {
+export async function getTopMembers(chatId:number) {\n  return await rest(`rpc/get_group_top_members`, {method:"POST",body:JSON.stringify({p_chat_id:chatId,p_limit:10})}) as Array<{user_id:number;username:string|null;first_name:string;total_messages:number;last_seen_at:string}>;\n}\nexport async function getInactiveMembers(chatId:number,days:number) {\n  return await rest(`rpc/get_group_inactive_members`, {method:"POST",body:JSON.stringify({p_chat_id:chatId,p_days:days,p_limit:30})}) as Array<{user_id:number;username:string|null;first_name:string;total_messages:number;last_seen_at:string}>;\n}\nexport async function getGroupReport(chatId:number) {\n  const rows=await rest(`rpc/get_group_report`, {method:"POST",body:JSON.stringify({p_chat_id:chatId})}) as Array<{member_count:number;total_messages:number}>;\n  return rows[0]??{member_count:0,total_messages:0};\n}\nexport async function getMembers(chatId:number) {
   return await rest(`group_members?chat_id=eq.${chatId}&select=user_id,username,first_name,total_messages,last_seen_at&order=total_messages.desc`) as Array<{
     user_id:number; username:string|null; first_name:string; total_messages:number; last_seen_at:string;
   }>;
