@@ -10,8 +10,11 @@ async function call(method:string,payload:Record<string,unknown>){
   return result.result;
 }
 export async function setGroupCommands(){
-  const commands=[{command:"start",description:"Buka menu utama"},{command:"help",description:"Panduan penggunaan bot"},{command:"settings",description:"Atur konfigurasi grup"},{command:"report",description:"Lihat ringkasan aktivitas grup"},{command:"top",description:"Lihat 10 anggota teraktif"},{command:"inactive",description:"Lihat anggota yang tidak aktif"},{command:"inactiveperson",description:"Lihat anggota yang belum memenuhi target pesan"}];
-  await call("setMyCommands",{commands,scope:{type:"default"}}); return call("setMyCommands",{commands,scope:{type:"all_group_chats"}});
+  const privateCommands=[{command:"start",description:"Mulai dan lihat panduan bot"},{command:"help",description:"Panduan penggunaan bot"}];
+  const groupCommands=[...privateCommands,{command:"settings",description:"Lihat konfigurasi grup"},{command:"setmin",description:"Atur target pesan grup"},{command:"setperiod",description:"Atur periode penilaian"},{command:"setgrace",description:"Atur toleransi member baru"},{command:"report",description:"Lihat ringkasan aktivitas grup"},{command:"top",description:"Lihat anggota teraktif"},{command:"inactive",description:"Lihat anggota tidak aktif"},{command:"inactiveperson",description:"Lihat anggota di bawah target pesan"},{command:"kickpreview",description:"Pratinjau calon Auto Kick"},{command:"autokick",description:"Jalankan Auto Kick setelah konfirmasi"}];
+  await call("setMyCommands",{commands:privateCommands,scope:{type:"default"}});
+  await call("setMyCommands",{commands:privateCommands,scope:{type:"all_private_chats"}});
+  return call("setMyCommands",{commands:groupCommands,scope:{type:"all_group_chats"}});
 }
 export async function sendMessage(chatId:number,text:string,replyMarkup?:InlineKeyboard){return call("sendMessage",{chat_id:chatId,text,disable_web_page_preview:true,...(replyMarkup?{reply_markup:replyMarkup}:{})});}
 export async function editMessageText(chatId:number,messageId:number,text:string,replyMarkup?:InlineKeyboard){return call("editMessageText",{chat_id:chatId,message_id:messageId,text,disable_web_page_preview:true,...(replyMarkup?{reply_markup:replyMarkup}:{})});}
