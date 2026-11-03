@@ -1,5 +1,5 @@
 import { getCandidates, getGroupSettings, getMembers, getMonitoredGroupIds, recordMemberJoin, recordMessage, updateGroupSetting } from "./database.ts";
-import { answerCallbackQuery, editMessageText, isGroupAdmin, sendMessage } from "./telegram.ts";
+import { answerCallbackQuery, editMessageText, isGroupAdmin, sendMessage, setGroupCommands } from "./telegram.ts";
 type User={id:number;is_bot?:boolean;username?:string;first_name?:string;last_name?:string};
 type Chat={id:number;type:string;title?:string};
 type Message={message_id:number;date:number;chat:Chat;from?:User;text?:string;new_chat_members?:User[]};
@@ -34,7 +34,7 @@ async function handleCommand(m:Message){
  if(!m.from)return;const cmd=(m.text??"").trim().split(/\s+/)[0].split("@")[0].toLowerCase(),chatId=m.chat.id;
  let admin=false;try{admin=await isGroupAdmin(chatId,m.from.id);}catch{return sendMessage(chatId,"⚠️ Gagal memverifikasi admin. Pastikan bot menjadi admin grup.");}
  if(!admin)return sendMessage(chatId,"⛔ Menu hanya bisa digunakan admin grup.");
- if(cmd==="/start")return sendMessage(chatId,"📊 GROUP MONITOR\nPilih tindakan yang ingin dilakukan.\n\nContact Person: @Ipnexoraa",mainMenu());
+ if(cmd==="/start"){await setGroupCommands();return sendMessage(chatId,"📊 GROUP MONITOR\nPilih tindakan yang ingin dilakukan.\n\nContact Person: @Ipnexoraa",mainMenu());}
  if(cmd==="/help")return sendMessage(chatId,helpText);
  if(cmd==="/settings")return showSettings(chatId);
  if(cmd==="/inactiveperson"||cmd==="/candidates"){
