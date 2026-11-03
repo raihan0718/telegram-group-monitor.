@@ -43,18 +43,18 @@ async function broadcastFromOwner(m:Message){
 function displayName(x:{username?:string|null;first_name:string}){return x.username?"@"+x.username:x.first_name;}
 function parseDuration(input:string|undefined):number|null{
  if(!input)return null;
- const match=input.trim().match(/^(\d+(?:\.\d+)?)\s*(minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|w|months?|mos?|mo|M|years?|yrs?|y|Y)$/i);
+ const match=input.trim().match(/^(\d+(?:\.\d+)?)\s*(minutes?|mins?|menit|m|hours?|hrs?|jam|h|days?|hari|d|weeks?|minggu|w|months?|bulan|mos?|mo|M|years?|tahun|yrs?|y|Y)$/i);
  if(!match)return null;
  const amount=Number(match[1]),unit=match[2];
  if(!Number.isFinite(amount)||amount<=0)return null;
  const lower=unit.toLowerCase();
  let multiplier:number;
- if(lower.startsWith("minute")||lower.startsWith("min")||unit==="m")multiplier=60;
- else if(lower.startsWith("hour")||lower.startsWith("hr")||unit.toLowerCase()==="h")multiplier=3600;
- else if(lower.startsWith("day")||unit.toLowerCase()==="d")multiplier=86400;
- else if(lower.startsWith("week")||unit.toLowerCase()==="w")multiplier=604800;
- else if(unit==="M"||lower.startsWith("month")||lower==="mo")multiplier=2592000;
- else if(unit==="Y"||lower.startsWith("year")||lower==="y")multiplier=31536000;
+ if(lower.startsWith("minute")||lower.startsWith("min")||lower==="menit"||unit==="m")multiplier=60;
+ else if(lower.startsWith("hour")||lower.startsWith("hr")||lower==="jam"||unit.toLowerCase()==="h")multiplier=3600;
+ else if(lower.startsWith("day")||lower==="hari"||unit.toLowerCase()==="d")multiplier=86400;
+ else if(lower.startsWith("week")||lower==="minggu"||unit.toLowerCase()==="w")multiplier=604800;
+ else if(unit==="M"||lower.startsWith("month")||lower==="bulan"||lower==="mo")multiplier=2592000;
+ else if(unit==="Y"||lower.startsWith("year")||lower==="tahun"||lower==="y")multiplier=31536000;
  else return null;
  const seconds=Math.round(amount*multiplier);
  return Number.isSafeInteger(seconds)&&seconds<=2147483647?seconds:null;
