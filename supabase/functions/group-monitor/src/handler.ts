@@ -1,8 +1,8 @@
-import { getCandidates, getGroupSettings, getGroupReport, getInactiveMembers, getTopMembers, getMonitoredGroupIds, getTestCandidates, recordMemberJoin, recordMessage, updateGroupSetting } from "./database.ts";
-import { answerCallbackQuery, editMessageText, isGroupAdmin, kickMember, sendMessage } from "./telegram.ts";
+import { getCandidates, getGroupSettings, getGroupReport, getInactiveMembers, getTopMembers, getMonitoredGroupIds, getTestCandidates, migrateGroupChatId, recordMemberJoin, recordMessage, updateGroupSetting } from "./database.ts";
+import { answerCallbackQuery, editMessageText, isGroupAdmin, kickMember, migrationTarget, sendMessage } from "./telegram.ts";
 type User={id:number;is_bot?:boolean;username?:string;first_name?:string;last_name?:string};
 type Chat={id:number;type:string;title?:string};
-type Message={message_id:number;date:number;chat:Chat;from?:User;text?:string;new_chat_members?:User[]};
+type Message={message_id:number;date:number;chat:Chat;from?:User;text?:string;new_chat_members?:User[];migrate_to_chat_id?:number;migrate_from_chat_id?:number};
 type Callback={id:string;data?:string;from:User;message?:Message};
 type ChatMemberUpdate={chat:Chat;new_chat_member:{status:string;user:User};old_chat_member:{status:string;user:User}};
 type Update={message?:Message;callback_query?:Callback;my_chat_member?:ChatMemberUpdate};
@@ -100,13 +100,13 @@ async function handleCallback(q:Callback){
   const s=await getGroupSettings(m.chat.id),rows=await getCandidates(m.chat.id,s);
   const body=rows.slice(0,50).map(x=>`• ${x.username?"@"+x.username:x.first_name}: ${x.period_messages}/${s.min_messages} pesan`).join("\n");
   await editMessageText(m.chat.id,m.message_id,`👤 INACTIVE PERSON\nPeriode: ${s.evaluation_days} hari • Toleransi: ${s.newcomer_grace_days} hari\n\n${body||"Tidak ada anggota yang masuk daftar."}`,{inline_keyboard:[[{text:"🔄 Periksa lagi",callback_data:"menu:clean"}],[{text:"⬅️ Kembali",callback_data:"menu:home"}]]});
-  return answerCallbackQuery(q.id,"Pemeriksaan selesai.");
+  return;
  }
  const match=data.match(/^cfg:(min|days|grace):(\d+)$/);if(match){
   const kind=match[1],value=Number(match[2]),allowed=kind==="min"?[10,20,30,50,100]:[3,7,14,30];
   if(!allowed.includes(value))return answerCallbackQuery(q.id,"Nilai tidak valid.");
   const field=kind==="min"?"min_messages":kind==="days"?"evaluation_days":"newcomer_grace_days";
-  await updateGroupSetting(m.chat.id,field,value);await showSettings(m.chat.id,m.message_id);return answerCallbackQuery(q.id,"Pengaturan disimpan.");
+  await updateGroupSetting(m.chat.id,field,value);await showSettings(m.chat.id,m.message_id);return;
  }
  return;
 }
