@@ -43,7 +43,7 @@ async function handleCommand(m:Message){
  }
  const members=await getMembers(chatId);
  if(cmd==="/top")return sendMessage(chatId,members.slice(0,10).map((x,i)=>`${i+1}. ${x.username?"@"+x.username:x.first_name} — ${x.total_messages} pesan`).join("\n")||"Belum ada data.");
- if(cmd==="/inactive"){const cutoff=Date.now()-7*86400000,rows=members.filter(x=>new Date(x.last_seen_at).getTime()<cutoff);return sendMessage(chatId,rows.slice(0,30).map(x=>`• ${x.username?"@"+x.username:x.first_name}`).join("\n")||"Tidak ada anggota inaktif lebih dari 7 hari.");}
+ if(cmd==="/inactive"){const s=await getGroupSettings(chatId),cutoff=Date.now()-s.evaluation_days*86400000,rows=members.filter(x=>new Date(x.last_seen_at).getTime()<cutoff);return sendMessage(chatId,`👤 INACTIVE — lebih dari ${s.evaluation_days} hari\\n\\n${rows.slice(0,30).map(x=>`• ${x.username?"@"+x.username:x.first_name}`).join("\\n")||"Tidak ada anggota inaktif."}`);}
  if(cmd==="/report"){const s=await getGroupSettings(chatId),total=members.reduce((a,x)=>a+x.total_messages,0);return sendMessage(chatId,`📊 Ringkasan grup\nAnggota tercatat: ${members.length}\nTotal pesan: ${total}\nTarget: ${s.min_messages} pesan / ${s.evaluation_days} hari\nToleransi member baru: ${s.newcomer_grace_days} hari`);}
 }
 async function handleCallback(q:Callback){
