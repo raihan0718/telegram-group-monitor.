@@ -60,31 +60,34 @@ function parseDuration(input:string|undefined):number|null{
  return Number.isSafeInteger(seconds)&&seconds<=2147483647?seconds:null;
 }
 function durationLabel(seconds:number):string{
- if(seconds%31536000===0)return seconds/31536000+" tahun";
- if(seconds%2592000===0)return seconds/2592000+" bulan";
- if(seconds%604800===0)return seconds/604800+" minggu";
- if(seconds%86400===0)return seconds/86400+" hari";
- if(seconds%3600===0)return seconds/3600+" jam";
- if(seconds%60===0)return seconds/60+" menit";
- return seconds+" detik";
+ if(seconds%31536000===0)return seconds/31536000+"y";
+ if(seconds%2592000===0)return seconds/2592000+"M";
+ if(seconds%604800===0)return seconds/604800+"w";
+ if(seconds%86400===0)return seconds/86400+"d";
+ if(seconds%3600===0)return seconds/3600+"h";
+ if(seconds%60===0)return seconds/60+"m";
+ return seconds+"s";
 }
 async function showSettings(chatId:number){
  const s=await getGroupSettings(chatId);
  return sendMessage(chatId,`⚙️ PENGATURAN GRUP
+━━━━━━━━━━━━━━━━
+🎯 Target minimal   : ${s.min_messages} pesan
+⏱ Periode penilaian: ${durationLabel(s.evaluation_seconds)}
+🆕 Toleransi member : ${durationLabel(s.newcomer_grace_seconds)}
 
-Target minimal: ${s.min_messages} pesan
-Periode penilaian: ${durationLabel(s.evaluation_seconds)}
-Toleransi member baru: ${durationLabel(s.newcomer_grace_seconds)}
-
-Ubah manual:
+🛠 UBAH PENGATURAN
 /setmin 25
-/setperiod 1 menit / 1D / 1M / 1Y
-/setgrace 1 menit / 1D / 1M / 1Y`);
+/setperiod 1m
+/setgrace 1d
+
+m = menit • M = bulan
+Contoh: 30m, 12h, 7d, 1M`);
 }
 async function showTest(chatId:number){
  const s=await getGroupSettings(chatId);
  const [report,candidates]=await Promise.all([getGroupReport(chatId),getTestCandidates(chatId,s)]);
- return sendMessage(chatId,`🧪 TEST CEPAT — 1 MENIT
+ return sendMessage(chatId,`🧪 TEST CEPAT • 1m
 
 Database: ✅ Terhubung
 Anggota tercatat: ${report.member_count}
@@ -96,19 +99,21 @@ Toleransi test: 1 menit
 Terdeteksi: ${candidates.length} anggota
 ${candidates.slice(0,20).map(x=>`• ${displayName(x)} — ${x.period_messages}/${s.min_messages} pesan`).join("\n")||"Belum ada anggota yang memenuhi kondisi test."}
 
-Mode test hanya membaca data; pengaturan asli tidak berubah.`);
+ℹ️ Test hanya membaca data. Pengaturan asli tetap aman.`);
 }
 async function showKickPreview(chatId:number){
  const s=await getGroupSettings(chatId),rows=await getCandidates(chatId,s);
  return sendMessage(chatId,`🧹 PRATINJAU AUTO KICK
+━━━━━━━━━━━━━━━━
+🎯 Syarat: di bawah ${s.min_messages} pesan
+⏱ Periode: ${durationLabel(s.evaluation_seconds)}
+🆕 Toleransi: ${durationLabel(s.newcomer_grace_seconds)}
+👤 Calon terdeteksi: ${rows.length}
 
-Aturan: kurang dari ${s.min_messages} pesan dalam ${durationLabel(s.evaluation_seconds)}, setelah toleransi ${durationLabel(s.newcomer_grace_seconds)}.
-Calon: ${rows.length}
+${rows.slice(0,50).map(x=>`• ${displayName(x)} — ${x.period_messages}/${s.min_messages} pesan`).join("\n")||"✅ Tidak ada anggota yang masuk kriteria."}
 
-${rows.slice(0,50).map(x=>`• ${displayName(x)} — ${x.period_messages}/${s.min_messages} pesan`).join("\n")||"Tidak ada anggota yang memenuhi aturan."}
-
-Belum ada yang dikeluarkan.
-Jika daftar sudah benar, jalankan: /autokick confirm`);
+ℹ️ Belum ada anggota yang dikeluarkan.
+Jika daftar sudah sesuai, jalankan /autokick confirm.`);
 }
 async function handleCommand(m:Message){
  if(!m.from)return;
@@ -135,7 +140,11 @@ async function handleCommand(m:Message){
   const field=kind==="period"?"evaluation_seconds":"newcomer_grace_seconds";
   try{
    await updateGroupSetting(chatId,field,seconds);
-   return sendMessage(chatId,`✅ ${kind==="period"?"Periode penilaian":"Toleransi member baru"} diperbarui: ${durationLabel(seconds)}.`);
+   return sendMessage(chatId,`✅ PENGATURAN DIPERBARUI
+━━━━━━━━━━━━━━━━
+${kind==="period"?"⏱ Periode penilaian":"🆕 Toleransi member"}: ${durationLabel(seconds)}
+
+Perubahan berhasil disimpan.`);
   }catch(error){console.error("duration_setting_failed",error);const detail=(error instanceof Error?error.message:String(error)).slice(0,350);return sendMessage(chatId,`⚠️ Timer gagal disimpan. Detail error database:\n${detail}`);}
  }
  if(cmd==="/test")return showTest(chatId);
