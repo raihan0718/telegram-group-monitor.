@@ -112,7 +112,7 @@ Jika daftar sudah benar, jalankan: /autokick confirm`);
 }
 async function handleCommand(m:Message){
  if(!m.from)return;
- const parts=(m.text??"").trim().split(/\s+/),cmd=parts[0].split("@")[0].toLowerCase(),arg=parts[1],chatId=m.chat.id;
+ const parts=(m.text??"").trim().split(/\s+/),cmd=parts[0].split("@")[0].toLowerCase(),arg=parts.slice(1).join(" "),chatId=m.chat.id;
  if(cmd==="/start"||cmd==="/help")return sendMessage(chatId,helpText);
  if(cmd==="/settings") {if(!await requireAdmin(m))return;return showSettings(chatId);}
  if(["/setmin","/setperiod","/setgrace","/autokick"].includes(cmd)){if(!await requireAdmin(m))return;}
