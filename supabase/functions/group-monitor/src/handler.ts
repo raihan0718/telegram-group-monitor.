@@ -13,9 +13,9 @@ const helpText=`📊 GROUP MONITOR — PERINTAH MANUAL
 /start — panduan perintah
 /help — bantuan
 /settings — lihat pengaturan grup
-/setmin 10|20|30|50|100 — ubah target pesan
-/setperiod 3|7|14|30 — ubah periode penilaian (hari)
-/setgrace 3|7|14|30 — ubah toleransi member baru (hari)
+/setmin 25 — ubah target pesan (angka bebas)
+/setperiod 1m|1D|1M|1Y — ubah periode penilaian
+/setgrace 1m|1D|1M|1Y — ubah toleransi member baru
 /report — ringkasan aktivitas
 /top — 10 anggota teraktif
 /inactive — anggota tanpa pesan selama periode inaktif
@@ -41,6 +41,33 @@ async function broadcastFromOwner(m:Message){
  return sendMessage(m.chat.id,`Broadcast selesai.\nBerhasil: ${success} grup\nGagal: ${failed} grup`);
 }
 function displayName(x:{username?:string|null;first_name:string}){return x.username?"@"+x.username:x.first_name;}
+function parseDuration(input:string|undefined):number|null{
+ if(!input)return null;
+ const match=input.trim().match(/^(\\d+(?:\\.\\d+)?)\\s*(minutes?|mins?|m|hours?|hrs?|h|days?|d|weeks?|w|months?|mos?|mo|M|years?|yrs?|y|Y)$/i);
+ if(!match)return null;
+ const amount=Number(match[1]),unit=match[2];
+ if(!Number.isFinite(amount)||amount<=0)return null;
+ const lower=unit.toLowerCase();
+ let multiplier:number;
+ if(lower.startsWith("minute")||lower.startsWith("min")||unit==="m")multiplier=60;
+ else if(lower.startsWith("hour")||lower.startsWith("hr")||unit.toLowerCase()==="h")multiplier=3600;
+ else if(lower.startsWith("day")||unit.toLowerCase()==="d")multiplier=86400;
+ else if(lower.startsWith("week")||unit.toLowerCase()==="w")multiplier=604800;
+ else if(unit==="M"||lower.startsWith("month")||lower==="mo")multiplier=2592000;
+ else if(unit==="Y"||lower.startsWith("year")||lower==="y")multiplier=31536000;
+ else return null;
+ const seconds=Math.round(amount*multiplier);
+ return Number.isSafeInteger(seconds)&&seconds<=2147483647?seconds:null;
+}
+function durationLabel(seconds:number):string{
+ if(seconds%31536000===0)return seconds/31536000+" tahun";
+ if(seconds%2592000===0)return seconds/2592000+" bulan";
+ if(seconds%604800===0)return seconds/604800+" minggu";
+ if(seconds%86400===0)return seconds/86400+" hari";
+ if(seconds%3600===0)return seconds/3600+" jam";
+ if(seconds%60===0)return seconds/60+" menit";
+ return seconds+" detik";
+}
 async function showSettings(chatId:number){
  const s=await getGroupSettings(chatId);
  return sendMessage(chatId,`⚙️ PENGATURAN GRUP
@@ -75,7 +102,7 @@ async function showKickPreview(chatId:number){
  const s=await getGroupSettings(chatId),rows=await getCandidates(chatId,s);
  return sendMessage(chatId,`🧹 PRATINJAU AUTO KICK
 
-Aturan: kurang dari ${s.min_messages} pesan dalam ${s.evaluation_days} hari, setelah toleransi ${s.newcomer_grace_days} hari.
+Aturan: kurang dari ${s.min_messages} pesan dalam ${durationLabel(s.evaluation_seconds)}, setelah toleransi ${durationLabel(s.newcomer_grace_seconds)}.
 Calon: ${rows.length}
 
 ${rows.slice(0,50).map(x=>`• ${displayName(x)} — ${x.period_messages}/${s.min_messages} pesan`).join("\n")||"Tidak ada anggota yang memenuhi aturan."}
@@ -108,11 +135,11 @@ async function handleCommand(m:Message){
  }
  if(cmd==="/inactiveperson"||cmd==="/candidates"){
   const s=await getGroupSettings(chatId),rows=await getCandidates(chatId,s);
-  return sendMessage(chatId,`👤 INACTIVE PERSON\nPeriode: ${s.evaluation_days} hari • Toleransi: ${s.newcomer_grace_days} hari\n\n${rows.slice(0,50).map(x=>`• ${displayName(x)}: ${x.period_messages}/${s.min_messages} pesan`).join("\n")||"Tidak ada anggota yang masuk daftar."}`);
+  return sendMessage(chatId,`👤 INACTIVE PERSON\nPeriode: ${durationLabel(s.evaluation_seconds)} • Toleransi: ${durationLabel(s.newcomer_grace_seconds)}\n\n${rows.slice(0,50).map(x=>`• ${displayName(x)}: ${x.period_messages}/${s.min_messages} pesan`).join("\n")||"Tidak ada anggota yang masuk daftar."}`);
  }
  if(cmd==="/top"){const rows=await getTopMembers(chatId);return sendMessage(chatId,rows.map((x,i)=>`${i+1}. ${displayName(x)} — ${x.total_messages} pesan`).join("\n")||"Belum ada data.");}
- if(cmd==="/inactive"){const s=await getGroupSettings(chatId),rows=await getInactiveMembers(chatId,s.evaluation_days);return sendMessage(chatId,`👤 INACTIVE — lebih dari ${s.evaluation_days} hari\n\n${rows.map(x=>`• ${displayName(x)}`).join("\n")||"Tidak ada anggota inaktif."}`);}
- if(cmd==="/report"){const [s,report]=await Promise.all([getGroupSettings(chatId),getGroupReport(chatId)]);return sendMessage(chatId,`📊 Ringkasan grup\nAnggota tercatat: ${report.member_count}\nTotal pesan: ${report.total_messages}\nTarget: ${s.min_messages} pesan / ${s.evaluation_days} hari\nToleransi member baru: ${s.newcomer_grace_days} hari`);}
+ if(cmd==="/inactive"){const s=await getGroupSettings(chatId),days=Math.max(1,Math.ceil(s.evaluation_seconds/86400)),rows=await getInactiveMembers(chatId,days);return sendMessage(chatId,`👤 INACTIVE — lebih dari ${durationLabel(s.evaluation_seconds)}\n\n${rows.map(x=>`• ${displayName(x)}`).join("\n")||"Tidak ada anggota inaktif."}`);}
+ if(cmd==="/report"){const [s,report]=await Promise.all([getGroupSettings(chatId),getGroupReport(chatId)]);return sendMessage(chatId,`📊 Ringkasan grup\nAnggota tercatat: ${report.member_count}\nTotal pesan: ${report.total_messages}\nTarget: ${s.min_messages} pesan / ${durationLabel(s.evaluation_seconds)}\nToleransi member baru: ${durationLabel(s.newcomer_grace_seconds)}`);}
 }
 async function onboarding(chatId:number){return sendMessage(chatId,"📊 Group Monitor aktif!\n\nGunakan /help untuk melihat semua perintah manual. Pesan dihitung sejak bot bergabung; pesan sebelumnya tidak ikut dihitung.\n\nContact Person: @Ipnexoraa");}
 export async function handleUpdate(update:Update){
