@@ -1,4 +1,4 @@
-import { getCandidates, getGroupSettings, getGroupReport, getInactiveMembers, getTopMembers, getMonitoredGroupIds, getTestCandidates, recordMemberJoin, recordMessage, updateGroupSetting } from "./database.ts";
+import { getCandidates, getGroupSettings, getGroupReport, getInactiveMembers, getTopMembers, getMonitoredGroupIds, recordMemberJoin, recordMessage, updateGroupSetting } from "./database.ts";
 import { isGroupAdmin, kickMember, sendMessage } from "./telegram.ts";
 
 type User={id:number;is_bot?:boolean;username?:string;first_name?:string;last_name?:string};
@@ -8,26 +8,34 @@ type ChatMemberUpdate={chat:Chat;new_chat_member:{status:string;user:User};old_c
 type Update={message?:Message;my_chat_member?:ChatMemberUpdate};
 
 const ownerId=()=>Deno.env.get("OWNER_TELEGRAM_ID")?.trim()||Deno.env.get("TELEGRAM_ADMIN_ID")?.trim()||Deno.env.get("TELEGRAM_ADMIN_IDS")?.split(",")[0]?.trim();
-const helpText=`📊 GROUP MONITOR — PERINTAH MANUAL
+const helpText=`📊 GROUP MONITOR
+━━━━━━━━━━━━━━━━
 
-/start — panduan perintah
-/help — bantuan
-/settings — lihat pengaturan grup
-/setmin 25 — ubah target pesan (angka bebas)
-/setperiod 1m|1D|1M|1Y — ubah periode penilaian
-/setgrace 1m|1D|1M|1Y — ubah toleransi member baru
-/report — ringkasan aktivitas
-/top — 10 anggota teraktif
-/inactive — anggota tanpa pesan selama periode inaktif
-/inactiveperson — daftar anggota di bawah target pesan
-/test — tes cepat dengan periode dan toleransi 1 menit
-/kickpreview — pratinjau calon Auto Kick
-/autokick confirm — jalankan kick setelah lu cek pratinjau
+⚙️ PENGATURAN
+/settings — lihat konfigurasi grup
+/setmin 25 — atur target pesan
+/setperiod 7d — atur periode penilaian
+/setgrace 1d — atur toleransi member baru
 
-Semua pengaturan dan tindakan moderasi harus dikirim sebagai perintah manual. Tidak ada tombol menu.
+📈 AKTIVITAS
+/report — ringkasan aktivitas grup
+/top — 10 anggota paling aktif
+/inactive — daftar anggota tidak aktif
+/inactiveperson — anggota di bawah target pesan
 
-📌 Pesan dihitung sejak bot bergabung. Pesan sebelumnya tidak ikut dihitung.
-Contact Person: @Ipnexoraa`;
+🛡️ MODERASI
+/kickpreview — periksa calon Auto Kick
+/autokick confirm — jalankan setelah pratinjau
+
+/help — tampilkan panduan ini
+
+━━━━━━━━━━━━━━━━
+📌 Pesan dihitung sejak bot bergabung. Riwayat sebelumnya tidak tersedia.
+
+Satuan waktu: m (menit), h (jam), d (hari), w (minggu), M (bulan), y (tahun).
+Contoh: 30m • 12h • 7d • 1M
+
+Bantuan: @Ipnexoraa`;
 
 async function requireAdmin(m:Message):Promise<boolean>{
  if(!m.from)return false;
@@ -72,48 +80,33 @@ async function showSettings(chatId:number){
  const s=await getGroupSettings(chatId);
  return sendMessage(chatId,`⚙️ PENGATURAN GRUP
 ━━━━━━━━━━━━━━━━
-🎯 Target minimal   : ${s.min_messages} pesan
-⏱ Periode penilaian: ${durationLabel(s.evaluation_seconds)}
-🆕 Toleransi member : ${durationLabel(s.newcomer_grace_seconds)}
+🎯 Target minimal      ${s.min_messages} pesan
+⏱ Periode penilaian   ${durationLabel(s.evaluation_seconds)}
+🆕 Toleransi member    ${durationLabel(s.newcomer_grace_seconds)}
 
-🛠 UBAH PENGATURAN
+✏️ UBAH PENGATURAN
 /setmin 25
-/setperiod 1m
+/setperiod 7d
 /setgrace 1d
 
-m = menit • M = bulan
-Contoh: 30m, 12h, 7d, 1M`);
-}
-async function showTest(chatId:number){
- const s=await getGroupSettings(chatId);
- const [report,candidates]=await Promise.all([getGroupReport(chatId),getTestCandidates(chatId,s)]);
- return sendMessage(chatId,`🧪 TEST CEPAT • 1m
-
-Database: ✅ Terhubung
-Anggota tercatat: ${report.member_count}
-Total pesan: ${report.total_messages}
-Target asli: ${s.min_messages} pesan
-Jendela evaluasi test: 1 menit
-Toleransi test: 1 menit
-
-Terdeteksi: ${candidates.length} anggota
-${candidates.slice(0,20).map(x=>`• ${displayName(x)} — ${x.period_messages}/${s.min_messages} pesan`).join("\n")||"Belum ada anggota yang memenuhi kondisi test."}
-
-ℹ️ Test hanya membaca data. Pengaturan asli tetap aman.`);
+ℹ️ SATUAN WAKTU
+m = menit  •  h = jam
+d = hari   •  w = minggu
+M = bulan  •  y = tahun`);
 }
 async function showKickPreview(chatId:number){
  const s=await getGroupSettings(chatId),rows=await getCandidates(chatId,s);
  return sendMessage(chatId,`🧹 PRATINJAU AUTO KICK
 ━━━━━━━━━━━━━━━━
-🎯 Syarat: di bawah ${s.min_messages} pesan
-⏱ Periode: ${durationLabel(s.evaluation_seconds)}
-🆕 Toleransi: ${durationLabel(s.newcomer_grace_seconds)}
-👤 Calon terdeteksi: ${rows.length}
+🎯 Target minimal     ${s.min_messages} pesan
+⏱ Periode penilaian  ${durationLabel(s.evaluation_seconds)}
+🆕 Toleransi member   ${durationLabel(s.newcomer_grace_seconds)}
+👥 Calon terdeteksi   ${rows.length}
 
 ${rows.slice(0,50).map(x=>`• ${displayName(x)} — ${x.period_messages}/${s.min_messages} pesan`).join("\n")||"✅ Tidak ada anggota yang masuk kriteria."}
 
 ℹ️ Belum ada anggota yang dikeluarkan.
-Jika daftar sudah sesuai, jalankan /autokick confirm.`);
+Periksa daftar di atas sebelum menjalankan /autokick confirm.`);
 }
 async function handleCommand(m:Message){
  if(!m.from)return;
@@ -129,14 +122,14 @@ async function handleCommand(m:Message){
   const kind=cmd==="/setmin"?"min":cmd==="/setperiod"?"period":"grace";
   if(kind==="min"){
    const value=Number(arg);
-   if(!Number.isSafeInteger(value)||value<0||value>2147483647)return sendMessage(chatId,"Format: /setmin <jumlah pesan> (angka bulat 0 atau lebih)");
+   if(!Number.isSafeInteger(value)||value<0||value>2147483647)return sendMessage(chatId,"⚠️ FORMAT TIDAK VALID\n\nGunakan angka bulat 0 atau lebih.\nContoh: /setmin 25");
    try{
     await updateGroupSetting(chatId,"min_messages",value);
-    return sendMessage(chatId,`✅ Target minimal diperbarui: ${value} pesan.`);
-   }catch(error){console.error("setmin_failed",error);return sendMessage(chatId,"⚠️ Gagal menyimpan target pesan. Cek koneksi database dan izin tabel.");}
+    return sendMessage(chatId,`✅ TARGET DIPERBARUI\n━━━━━━━━━━━━━━━━\nTarget minimal: ${value} pesan\n\nPerubahan berhasil disimpan.`);
+   }catch(error){console.error("setmin_failed",error);return sendMessage(chatId,"⚠️ TARGET GAGAL DISIMPAN\n\nPeriksa koneksi database dan izin bot, lalu coba lagi.");}
   }
   const seconds=parseDuration(arg);
-  if(seconds===null)return sendMessage(chatId,"Format durasi: /setperiod 1 menit, /setperiod 1h, /setperiod 1D, /setperiod 1M, /setperiod 1Y. Berlaku juga untuk /setgrace. M = bulan, m = menit.");
+  if(seconds===null)return sendMessage(chatId,"⚠️ FORMAT DURASI TIDAK VALID\n\nContoh penggunaan:\n/setperiod 30m\n/setperiod 12h\n/setperiod 7d\n/setperiod 1M\n\nBerlaku juga untuk /setgrace. m = menit, M = bulan.");
   const field=kind==="period"?"evaluation_seconds":"newcomer_grace_seconds";
   try{
    await updateGroupSetting(chatId,field,seconds);
@@ -147,7 +140,6 @@ ${kind==="period"?"⏱ Periode penilaian":"🆕 Toleransi member"}: ${durationLa
 Perubahan berhasil disimpan.`);
   }catch(error){console.error("duration_setting_failed",error);const detail=(error instanceof Error?error.message:String(error)).slice(0,350);return sendMessage(chatId,`⚠️ Timer gagal disimpan. Detail error database:\n${detail}`);}
  }
- if(cmd==="/test")return showTest(chatId);
  if(cmd==="/kickpreview")return showKickPreview(chatId);
  if(cmd==="/autokick"){
   if(arg!=="confirm")return sendMessage(chatId,"Perintah ini akan mengeluarkan anggota. Cek daftar dulu dengan /kickpreview, lalu ketik /autokick confirm.");
@@ -158,11 +150,33 @@ Perubahan berhasil disimpan.`);
  }
  if(cmd==="/inactiveperson"||cmd==="/candidates"){
   const s=await getGroupSettings(chatId),rows=await getCandidates(chatId,s);
-  return sendMessage(chatId,`👤 INACTIVE PERSON\nPeriode: ${durationLabel(s.evaluation_seconds)} • Toleransi: ${durationLabel(s.newcomer_grace_seconds)}\n\n${rows.slice(0,50).map(x=>`• ${displayName(x)}: ${x.period_messages}/${s.min_messages} pesan`).join("\n")||"Tidak ada anggota yang masuk daftar."}`);
+  return sendMessage(chatId,`👤 DAFTAR INACTIVE PERSON
+━━━━━━━━━━━━━━━━
+⏱ Periode   ${durationLabel(s.evaluation_seconds)}
+🆕 Toleransi ${durationLabel(s.newcomer_grace_seconds)}
+🎯 Target    ${s.min_messages} pesan
+👥 Ditemukan ${rows.length} anggota
+
+${rows.slice(0,50).map(x=>`• ${displayName(x)} — ${x.period_messages}/${s.min_messages} pesan`).join("\n")||"✅ Tidak ada anggota yang masuk kriteria."}`);
  }
- if(cmd==="/top"){const rows=await getTopMembers(chatId);return sendMessage(chatId,rows.map((x,i)=>`${i+1}. ${displayName(x)} — ${x.total_messages} pesan`).join("\n")||"Belum ada data.");}
- if(cmd==="/inactive"){const s=await getGroupSettings(chatId),days=Math.max(1,Math.ceil(s.evaluation_seconds/86400)),rows=await getInactiveMembers(chatId,days);return sendMessage(chatId,`👤 INACTIVE — lebih dari ${durationLabel(s.evaluation_seconds)}\n\n${rows.map(x=>`• ${displayName(x)}`).join("\n")||"Tidak ada anggota inaktif."}`);}
- if(cmd==="/report"){const [s,report]=await Promise.all([getGroupSettings(chatId),getGroupReport(chatId)]);return sendMessage(chatId,`📊 Ringkasan grup\nAnggota tercatat: ${report.member_count}\nTotal pesan: ${report.total_messages}\nTarget: ${s.min_messages} pesan / ${durationLabel(s.evaluation_seconds)}\nToleransi member baru: ${durationLabel(s.newcomer_grace_seconds)}`);}
+ if(cmd==="/top"){const rows=await getTopMembers(chatId);return sendMessage(chatId,`🏆 10 ANGGOTA TERAKTIF
+━━━━━━━━━━━━━━━━
+${rows.map((x,i)=>`${i+1}. ${displayName(x)} — ${x.total_messages} pesan`).join("\n")||"Belum ada aktivitas yang tercatat."}`);}
+ if(cmd==="/inactive"){const s=await getGroupSettings(chatId),days=Math.max(1,Math.ceil(s.evaluation_seconds/86400)),rows=await getInactiveMembers(chatId,days);return sendMessage(chatId,`💤 ANGGOTA TIDAK AKTIF
+━━━━━━━━━━━━━━━━
+⏱ Batas tidak aktif: ${durationLabel(s.evaluation_seconds)}
+👥 Ditemukan: ${rows.length} anggota
+
+${rows.map(x=>`• ${displayName(x)}`).join("\n")||"✅ Tidak ada anggota yang terdeteksi tidak aktif."}`);}
+ if(cmd==="/report"){const [s,report]=await Promise.all([getGroupSettings(chatId),getGroupReport(chatId)]);return sendMessage(chatId,`📊 RINGKASAN GRUP
+━━━━━━━━━━━━━━━━
+👥 Anggota tercatat   ${report.member_count}
+💬 Total pesan        ${report.total_messages}
+
+⚙️ ATURAN GRUP
+🎯 Target minimal     ${s.min_messages} pesan
+⏱ Periode penilaian  ${durationLabel(s.evaluation_seconds)}
+🆕 Toleransi member   ${durationLabel(s.newcomer_grace_seconds)}`);}
 }
 async function onboarding(chatId:number){return sendMessage(chatId,"📊 Group Monitor aktif!\n\nGunakan /help untuk melihat semua perintah manual. Pesan dihitung sejak bot bergabung; pesan sebelumnya tidak ikut dihitung.\n\nContact Person: @Ipnexoraa");}
 export async function handleUpdate(update:Update){
