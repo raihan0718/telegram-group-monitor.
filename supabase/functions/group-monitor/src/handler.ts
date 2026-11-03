@@ -79,23 +79,23 @@ async function handleCommand(m:Message){
  if(cmd==="/report"){const [s,report]=await Promise.all([getGroupSettings(chatId),getGroupReport(chatId)]);return sendMessage(chatId,`📊 Ringkasan grup\nAnggota tercatat: ${report.member_count}\nTotal pesan: ${report.total_messages}\nTarget: ${s.min_messages} pesan / ${s.evaluation_days} hari\nToleransi member baru: ${s.newcomer_grace_days} hari`);}
 }
 async function handleCallback(q:Callback){
- const m=q.message;if(!m){return answerCallbackQuery(q.id);}
- try{if(!await isGroupAdmin(m.chat.id,q.from.id))return answerCallbackQuery(q.id,"Khusus admin grup.");}
- catch{return answerCallbackQuery(q.id,"Gagal memverifikasi admin.");}
+ await answerCallbackQuery(q.id); const m=q.message;if(!m)return;
+ try{if(!await isGroupAdmin(m.chat.id,q.from.id))return;}
+ catch{return;}
  const data=q.data??"";
- if(data==="noop")return answerCallbackQuery(q.id);
- if(data==="menu:home"){await editMessageText(m.chat.id,m.message_id,"📊 GROUP MONITOR\nPilih tindakan yang ingin dilakukan.\n\nContact Person: @Ipnexoraa",mainMenu());return answerCallbackQuery(q.id);}
- if(data==="menu:settings"){await showSettings(m.chat.id,m.message_id);return answerCallbackQuery(q.id);}
- if(data==="menu:test"){await showTestPanel(m.chat.id,m.message_id);return answerCallbackQuery(q.id,"Tes 1 menit diperbarui.");}
- if(data==="menu:kick"){await showKickPreview(m.chat.id,m.message_id);return answerCallbackQuery(q.id);}
+ if(data==="noop")return;
+ if(data==="menu:home"){await editMessageText(m.chat.id,m.message_id,"📊 GROUP MONITOR\nPilih tindakan yang ingin dilakukan.\n\nContact Person: @Ipnexoraa",mainMenu());return;}
+ if(data==="menu:settings"){await showSettings(m.chat.id,m.message_id);return;}
+ if(data==="menu:test"){await showTestPanel(m.chat.id,m.message_id);return;}
+ if(data==="menu:kick"){await showKickPreview(m.chat.id,m.message_id);return;}
  if(data==="kick:confirm"){
   const s=await getGroupSettings(m.chat.id),rows=await getCandidates(m.chat.id,s);
   let done=0,failed=0;
   for(const member of rows.slice(0,50)){try{await kickMember(m.chat.id,member.user_id);done++;}catch{failed++;}}
   await editMessageText(m.chat.id,m.message_id,`🧹 AUTO KICK SELESAI\nBerhasil dikeluarkan: ${done}\nGagal: ${failed}\n\nDaftar diproses maksimal 50 akun. Pastikan bot punya izin ban members.`,{inline_keyboard:[[{text:"⬅️ Kembali",callback_data:"menu:home"}]]});
-  return answerCallbackQuery(q.id,"Proses selesai.");
+  return;
  }
- if(data==="menu:help"){await editMessageText(m.chat.id,m.message_id,helpText,{inline_keyboard:[[{text:"⬅️ Kembali",callback_data:"menu:home"}]]});return answerCallbackQuery(q.id);}
+ if(data==="menu:help"){await editMessageText(m.chat.id,m.message_id,helpText,{inline_keyboard:[[{text:"⬅️ Kembali",callback_data:"menu:home"}]]});return;}
  if(data==="menu:clean"||data==="menu:inactiveperson"){
   const s=await getGroupSettings(m.chat.id),rows=await getCandidates(m.chat.id,s);
   const body=rows.slice(0,50).map(x=>`• ${x.username?"@"+x.username:x.first_name}: ${x.period_messages}/${s.min_messages} pesan`).join("\n");
@@ -108,7 +108,7 @@ async function handleCallback(q:Callback){
   const field=kind==="min"?"min_messages":kind==="days"?"evaluation_days":"newcomer_grace_days";
   await updateGroupSetting(m.chat.id,field,value);await showSettings(m.chat.id,m.message_id);return answerCallbackQuery(q.id,"Pengaturan disimpan.");
  }
- return answerCallbackQuery(q.id);
+ return;
 }
 async function onboarding(chatId:number){
  await sendMessage(chatId,"📊 Group Monitor aktif!\n\nBot mulai menghitung pesan sejak bot bergabung ke grup ini. Pesan sebelum bot masuk tidak ikut dihitung.\n\nAnggota baru mendapat masa toleransi sesuai pengaturan admin dan tidak langsung masuk daftar Inactive Person.\n\nAdmin dapat mengatur target pesan, periode penilaian, dan masa toleransi melalui /settings.\n\nPastikan bot memiliki izin membaca pesan grup.\n\nContact Person: @Ipnexoraa");
