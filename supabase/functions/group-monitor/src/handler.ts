@@ -40,13 +40,16 @@ Bantuan: @Ipnexoraa`;
 async function requireAdmin(m:Message):Promise<boolean>{
  if(!m.from)return false;
  try{return await isGroupAdmin(m.chat.id,m.from.id);}
- catch{await sendMessage(m.chat.id,"⚠️ Gagal memverifikasi admin. Pastikan bot menjadi admin grup.");return false;}
+ catch{await sendMessage(m.chat.id,"⚠️ VERIFIKASI ADMIN GAGAL\n\nPastikan bot memiliki status admin di grup, lalu coba lagi.");return false;}
 }
 async function broadcastFromOwner(m:Message){
  const id=ownerId();if(!id||String(m.from?.id)!==id||!m.text?.trim())return;
  const groups=await getMonitoredGroupIds();if(!groups.length)return sendMessage(m.chat.id,"Belum ada grup yang tercatat.");
  let success=0,failed=0;for(const chatId of groups){try{await sendMessage(chatId,m.text);success++;}catch{failed++;}}
- return sendMessage(m.chat.id,`Broadcast selesai.\nBerhasil: ${success} grup\nGagal: ${failed} grup`);
+ return sendMessage(m.chat.id,`📣 BROADCAST SELESAI
+━━━━━━━━━━━━━━━━
+✅ Berhasil  ${success} grup
+⚠️ Gagal     ${failed} grup`);
 }
 function displayName(x:{username?:string|null;first_name:string}){return x.username?"@"+x.username:x.first_name;}
 function parseDuration(input:string|undefined):number|null{
@@ -115,7 +118,7 @@ async function handleCommand(m:Message){
  if(cmd==="/settings") {
   if(!await requireAdmin(m))return;
   try{return await showSettings(chatId);}
-  catch(error){console.error("settings_command_failed",error);return sendMessage(chatId,"⚠️ Gagal membaca pengaturan. Database belum siap atau migration timer belum dijalankan. Cek Supabase SQL migration.");}
+  catch(error){console.error("settings_command_failed",error);return sendMessage(chatId,"⚠️ PENGATURAN GAGAL DIMUAT\n\nBot tidak dapat membaca konfigurasi grup. Coba lagi beberapa saat.");}
  }
  if(["/setmin","/setperiod","/setgrace","/autokick"].includes(cmd)){if(!await requireAdmin(m))return;}
  if(cmd==="/setmin"||cmd==="/setperiod"||cmd==="/setgrace"){
@@ -138,15 +141,25 @@ async function handleCommand(m:Message){
 ${kind==="period"?"⏱ Periode penilaian":"🆕 Toleransi member"}: ${durationLabel(seconds)}
 
 Perubahan berhasil disimpan.`);
-  }catch(error){console.error("duration_setting_failed",error);const detail=(error instanceof Error?error.message:String(error)).slice(0,350);return sendMessage(chatId,`⚠️ Timer gagal disimpan. Detail error database:\n${detail}`);}
+  }catch(error){console.error("duration_setting_failed",error);const detail=(error instanceof Error?error.message:String(error)).slice(0,350);return sendMessage(chatId,`⚠️ PENGATURAN GAGAL DISIMPAN
+━━━━━━━━━━━━━━━━
+Detail: ${detail}
+
+Coba lagi beberapa saat. Jika masalah berulang, kirim detail ini ke pengelola bot.`);}
  }
  if(cmd==="/kickpreview")return showKickPreview(chatId);
  if(cmd==="/autokick"){
-  if(arg!=="confirm")return sendMessage(chatId,"Perintah ini akan mengeluarkan anggota. Cek daftar dulu dengan /kickpreview, lalu ketik /autokick confirm.");
+  if(arg!=="confirm")return sendMessage(chatId,"🛡️ KONFIRMASI AUTO KICK\n━━━━━━━━━━━━━━━━\nPerintah ini akan mengeluarkan anggota yang masuk kriteria.\n\n1. Periksa daftar dengan /kickpreview\n2. Jika sudah sesuai, jalankan /autokick confirm");
   const s=await getGroupSettings(chatId),rows=await getCandidates(chatId,s);
   let done=0,failed=0;
   for(const member of rows.slice(0,50)){try{await kickMember(chatId,member.user_id);done++;}catch{failed++;}}
-  return sendMessage(chatId,`🧹 AUTO KICK SELESAI\nBerhasil dikeluarkan: ${done}\nGagal: ${failed}\nDaftar diproses maksimal 50 akun.`);
+  return sendMessage(chatId,`🧹 AUTO KICK SELESAI
+━━━━━━━━━━━━━━━━
+✅ Berhasil dikeluarkan  ${done}
+⚠️ Gagal                 ${failed}
+📋 Batas pemrosesan      50 anggota
+
+Silakan periksa kembali daftar anggota grup.`);
  }
  if(cmd==="/inactiveperson"||cmd==="/candidates"){
   const s=await getGroupSettings(chatId),rows=await getCandidates(chatId,s);
@@ -178,7 +191,15 @@ ${rows.map(x=>`• ${displayName(x)}`).join("\n")||"✅ Tidak ada anggota yang t
 ⏱ Periode penilaian  ${durationLabel(s.evaluation_seconds)}
 🆕 Toleransi member   ${durationLabel(s.newcomer_grace_seconds)}`);}
 }
-async function onboarding(chatId:number){return sendMessage(chatId,"📊 Group Monitor aktif!\n\nGunakan /help untuk melihat semua perintah manual. Pesan dihitung sejak bot bergabung; pesan sebelumnya tidak ikut dihitung.\n\nContact Person: @Ipnexoraa");}
+async function onboarding(chatId:number){return sendMessage(chatId,`👋 GROUP MONITOR AKTIF
+━━━━━━━━━━━━━━━━
+
+Bot berhasil bergabung dan siap mencatat aktivitas grup.
+
+Ketik /help untuk melihat daftar perintah dan panduan penggunaan.
+
+📌 Pesan mulai dihitung sejak bot bergabung.
+Bantuan: @Ipnexoraa`);}
 export async function handleUpdate(update:Update){
  if(update.my_chat_member){
   const u=update.my_chat_member,old=u.old_chat_member.status,next=u.new_chat_member.status;
