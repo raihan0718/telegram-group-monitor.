@@ -39,7 +39,7 @@ Periode hitung: ${s.evaluation_days} hari
 Toleransi mode test: 1 menit
 
 Sudah terdeteksi: ${candidates.length} anggota
-${candidates.slice(0,15).map(x=>`• ${x.username?"@"+x.username:x.first_name} — ${x.period_messages}/${s.min_messages} pesan`).join("\n")||"Belum ada. Anggota baru akan lolos toleransi sampai 1 menit."}
+${candidates.slice(0,15).map(x=>`• ${x.username?"@"+x.username:x.first_name} — ${x.period_messages}/${s.min_messages} pesan`).join("\n")||"Belum ada anggota yang memenuhi kondisi test 1 menit."}
 
 Tes ini hanya membaca data. Pengaturan asli tidak diubah.`;
  return editMessageText(chatId,messageId,text,{inline_keyboard:[[{text:"🔄 Tes ulang",callback_data:"menu:test"}],[{text:"🧹 Buka Auto Kick",callback_data:"menu:kick"}],[{text:"⬅️ Kembali",callback_data:"menu:home"}]]});
