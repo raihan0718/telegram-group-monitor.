@@ -1,32 +1,33 @@
 # Telegram Group Monitor
 
-Bot Telegram untuk mencatat aktivitas anggota grup, membuat leaderboard, dan menandai anggota yang belum memenuhi target pesan.
+Bot Telegram untuk mencatat aktivitas anggota grup, membuat leaderboard, dan menampilkan **Inactive Person** berdasarkan target pesan per grup.
 
-## Fitur awal
-- Hitung pesan baru per anggota (pesan layanan/bot diabaikan).
-- Perintah `/report`, `/top`, `/inactive`, `/candidates`, dan `/help`.
-- Target minimum pesan dan periode laporan dapat diatur lewat environment.
-- Tidak mengeluarkan anggota otomatis. Bot hanya membuat daftar kandidat; admin tetap memutuskan tindakan.
-- Siapkan jalur impor data historis melalui format CSV yang didokumentasikan.
+## Fitur
+- Menghitung pesan sejak bot bergabung; pesan sebelum bot masuk tidak tersedia dari Telegram.
+- Menu tombol melalui `/start@UsernameBot`: Mulai Pembersihan, Settings, dan Help.
+- Tombol menu mengedit pesan yang sama agar chat grup tetap rapi.
+- Pengaturan per grup: minimal pesan (10/20/30/50/100), periode penilaian (3/7/14/30 hari), dan toleransi anggota baru (3/7/14/30 hari).
+- Anggota baru mendapat masa toleransi sejak event bergabung diterima bot.
+- Perintah `/report`, `/top`, `/inactive`, `/inactiveperson`, `/settings`, dan `/help`.
+- Tidak mengeluarkan anggota otomatis. Bot hanya menampilkan daftar; admin tetap menentukan tindakan.
+- Contact Person: **@Ipnexoraa**.
 
-> Telegram Bot API tidak menyediakan riwayat lengkap grup sebelum bot ditambahkan. Untuk data lama, gunakan ekspor Telegram yang sah dan proses impor terpisah.
+> Telegram Bot API tidak menyediakan riwayat lengkap grup sebelum bot ditambahkan. Anggota yang sudah tercatat sebelum fitur join tracking aktif memakai waktu pertama kali terlihat sebagai perkiraan tanggal bergabung.
 
 ## Stack
 - Supabase Edge Functions (Deno + TypeScript) sebagai webhook.
-- Supabase Postgres untuk data anggota dan hitungan pesan.
+- Supabase Postgres untuk data anggota, pesan, dan pengaturan.
 - Telegram Bot API.
 
-## Struktur
-- `supabase/functions/group-monitor/`: webhook dan modul bot.
-- `supabase/migrations/`: skema database.
-- `docs/`: setup, perintah, dan format impor.
-
-## Setup singkat
-1. Jalankan migration SQL di Supabase.
+## Setup / deploy
+1. Jalankan migration SQL di `supabase/migrations/` pada Supabase SQL Editor.
 2. Deploy Edge Function `group-monitor`.
-3. Set secrets: `TELEGRAM_BOT_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `TELEGRAM_ADMIN_IDS`, `TARGET_GROUP_ID`, `MIN_MESSAGES`.
+3. Set secrets: `TELEGRAM_BOT_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, dan konfigurasi owner broadcast bila dipakai.
 4. Tambahkan bot ke grup dan beri izin membaca pesan. Atur privacy mode di BotFather sesuai kebutuhan pencatatan.
-5. Set webhook Telegram ke URL function dengan secret token.
-6. Uji `/help` di grup.
+5. Pastikan webhook Telegram menerima update `message`, `my_chat_member`, dan `callback_query`. Contoh parameter `allowed_updates` saat memanggil `setWebhook`:
+   `["message","my_chat_member","callback_query"]`.
+6. Uji `/start@UsernameBot`, tombol Settings, dan `/help` di grup.
+
+Webhook `allowed_updates` diatur melalui Telegram Bot API, bukan dari kode Edge Function. Jika webhook sudah aktif, perbarui konfigurasi webhook yang sama tanpa mengganti token atau URL function.
 
 Jangan pernah commit token atau service-role key ke GitHub.
