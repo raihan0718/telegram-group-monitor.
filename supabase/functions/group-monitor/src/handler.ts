@@ -3,7 +3,7 @@ import { isGroupAdmin, sendMessage } from "./telegram.ts";
 type User = { id:number; is_bot?:boolean; username?:string; first_name?:string; last_name?:string };
 type Message = { message_id:number; date:number; chat:{id:number;type:string}; from?:User; text?:string };
 const envNumber=(name:string,fallback:number)=>Number(Deno.env.get(name)??fallback);
-const ownerId=()=>Deno.env.get("OWNER_TELEGRAM_ID")?.trim() || Deno.env.get("TELEGRAM_ADMIN_IDS")?.split(",")[0]?.trim();
+const ownerId=()=>Deno.env.get("OWNER_TELEGRAM_ID")?.trim() || Deno.env.get("TELEGRAM_ADMIN_ID")?.trim() || Deno.env.get("TELEGRAM_ADMIN_IDS")?.split(",")[0]?.trim();
 const label=(m:{username:string|null;first_name:string;total_messages:number},i:number)=>`${i+1}. ${m.username?"@"+m.username:m.first_name} — ${m.total_messages} pesan`;
 async function broadcastFromOwner(m:Message) {
   const id=ownerId();
