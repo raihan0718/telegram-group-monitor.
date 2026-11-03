@@ -35,7 +35,7 @@ async function handleCommand(m:Message){
  if(cmd==="/start"){try{await setGroupCommands();}catch(error){console.error("set_group_commands_failed",error);}}
  let admin=false;try{admin=await isGroupAdmin(chatId,m.from.id);}catch{return sendMessage(chatId,"⚠️ Gagal memverifikasi admin. Pastikan bot menjadi admin grup.");}
  if(!admin)return sendMessage(chatId,"⛔ Menu hanya bisa digunakan admin grup.");
- if(cmd==="/start")return sendMessage(chatId,"📊 GROUP MONITOR\nPilih tindakan yang ingin dilakukan.\n\nContact Person: @Ipnexoraa",mainMenu());}
+ if(cmd==="/start")return sendMessage(chatId,"📊 GROUP MONITOR\nPilih tindakan yang ingin dilakukan.\n\nContact Person: @Ipnexoraa",mainMenu());
  if(cmd==="/help")return sendMessage(chatId,helpText);
  if(cmd==="/settings")return showSettings(chatId);
  if(cmd==="/inactiveperson"||cmd==="/candidates"){
