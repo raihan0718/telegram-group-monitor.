@@ -28,19 +28,19 @@ async function showSettings(chatId:number,messageId?:number){
 async function showTestPanel(chatId:number,messageId:number){
  const [s,members,candidates]=await Promise.all([getGroupSettings(chatId),getMembers(chatId),getCandidates(chatId,await getGroupSettings(chatId))]);
  const total=members.reduce((sum,x)=>sum+x.total_messages,0);
- const text=\`🧪 TEST GROUP MONITOR
+ const text=`🧪 TEST GROUP MONITOR
 
 Status database: ✅ Terhubung
-Anggota tercatat: \${members.length}
-Pesan tercatat: \${total}
+Anggota tercatat: ${members.length}
+Pesan tercatat: ${total}
 
 ⚙️ KONFIGURASI AKTIF
-Target minimal: \${s.min_messages} pesan
-Periode penilaian: \${s.evaluation_days} hari
-Toleransi anggota baru: \${s.newcomer_grace_days} hari
+Target minimal: ${s.min_messages} pesan
+Periode penilaian: ${s.evaluation_days} hari
+Toleransi anggota baru: ${s.newcomer_grace_days} hari
 
 🔎 HASIL PEMERIKSAAN
-Inactive Person saat ini: \${candidates.length} anggota
+Inactive Person saat ini: ${candidates.length} anggota
 
 📌 CARA TES NYATA
 1. Gunakan akun kedua yang baru bergabung.
@@ -48,7 +48,7 @@ Inactive Person saat ini: \${candidates.length} anggota
 3. Selama masa toleransi, akun tidak boleh masuk Inactive Person.
 4. Setelah toleransi berakhir, akun dengan pesan di bawah target baru boleh masuk daftar.
 
-Catatan: menu ini hanya memeriksa data dan konfigurasi. Tidak mengubah waktu atau data anggota.\`;
+Catatan: menu ini hanya memeriksa data dan konfigurasi. Tidak mengubah waktu atau data anggota.`;
  return editMessageText(chatId,messageId,text,{inline_keyboard:[[{text:"🔄 Jalankan tes ulang",callback_data:"menu:test"}],[{text:"⬅️ Kembali",callback_data:"menu:home"}]]});
 }
 
