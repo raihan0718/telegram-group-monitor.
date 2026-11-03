@@ -27,13 +27,12 @@ async function showSettings(chatId:number,messageId?:number){
 
 async function showTestPanel(chatId:number,messageId:number){
  const s=await getGroupSettings(chatId);
- const [members,candidates]=await Promise.all([getMembers(chatId),getTestCandidates(chatId,s)]);
- const total=members.reduce((sum,x)=>sum+x.total_messages,0);
+ const [report,candidates]=await Promise.all([getGroupReport(chatId),getTestCandidates(chatId,s)]);
  const text=`🧪 TEST CEPAT (TOLERANSI 1 MENIT)
 
 Database: ✅ Terhubung
-Anggota tercatat: ${members.length}
-Total pesan: ${total}
+Anggota tercatat: ${report.member_count}
+Total pesan: ${report.total_messages}
 
 Target asli: ${s.min_messages} pesan
 Periode hitung: ${s.evaluation_days} hari
@@ -45,6 +44,7 @@ ${candidates.slice(0,15).map(x=>`• ${x.username?"@"+x.username:x.first_name} �
 Tes ini hanya membaca data. Pengaturan asli tidak diubah.`;
  return editMessageText(chatId,messageId,text,{inline_keyboard:[[{text:"🔄 Tes ulang",callback_data:"menu:test"}],[{text:"🧹 Buka Auto Kick",callback_data:"menu:kick"}],[{text:"⬅️ Kembali",callback_data:"menu:home"}]]});
 }
+
 async function showKickPreview(chatId:number,messageId:number){
  const s=await getGroupSettings(chatId),rows=await getCandidates(chatId,s);
  const text=`🧹 AUTO KICK — PRATINJAU
@@ -74,10 +74,9 @@ async function handleCommand(m:Message){
   const body=rows.slice(0,50).map(x=>`• ${x.username?"@"+x.username:x.first_name}: ${x.period_messages}/${s.min_messages} pesan`).join("\n");
   return sendMessage(chatId,`👤 INACTIVE PERSON\nPeriode: ${s.evaluation_days} hari • Toleransi: ${s.newcomer_grace_days} hari\n\n${body||"Tidak ada anggota yang masuk daftar."}`);
  }
- const members=await getMembers(chatId);
- if(cmd==="/top")return sendMessage(chatId,members.slice(0,10).map((x,i)=>`${i+1}. ${x.username?"@"+x.username:x.first_name} — ${x.total_messages} pesan`).join("\n")||"Belum ada data.");
- if(cmd==="/inactive"){const s=await getGroupSettings(chatId),cutoff=Date.now()-s.evaluation_days*86400000,rows=members.filter(x=>new Date(x.last_seen_at).getTime()<cutoff);return sendMessage(chatId,`👤 INACTIVE — lebih dari ${s.evaluation_days} hari\\n\\n${rows.slice(0,30).map(x=>`• ${x.username?"@"+x.username:x.first_name}`).join("\\n")||"Tidak ada anggota inaktif."}`);}
- if(cmd==="/report"){const s=await getGroupSettings(chatId),total=members.reduce((a,x)=>a+x.total_messages,0);return sendMessage(chatId,`📊 Ringkasan grup\nAnggota tercatat: ${report.member_count}\nTotal pesan: ${report.total_messages}\nTarget: ${s.min_messages} pesan / ${s.evaluation_days} hari\nToleransi member baru: ${s.newcomer_grace_days} hari`);}
+ if(cmd==="/top"){const rows=await getTopMembers(chatId);return sendMessage(chatId,rows.map((x,i)=>`${i+1}. ${x.username?"@"+x.username:x.first_name} — ${x.total_messages} pesan`).join("\n")||"Belum ada data.");}
+ if(cmd==="/inactive"){const s=await getGroupSettings(chatId),rows=await getInactiveMembers(chatId,s.evaluation_days);return sendMessage(chatId,`👤 INACTIVE — lebih dari ${s.evaluation_days} hari\n\n${rows.map(x=>`• ${x.username?"@"+x.username:x.first_name}`).join("\n")||"Tidak ada anggota inaktif."}`);}
+ if(cmd==="/report"){const [s,report]=await Promise.all([getGroupSettings(chatId),getGroupReport(chatId)]);return sendMessage(chatId,`📊 Ringkasan grup\nAnggota tercatat: ${report.member_count}\nTotal pesan: ${report.total_messages}\nTarget: ${s.min_messages} pesan / ${s.evaluation_days} hari\nToleransi member baru: ${s.newcomer_grace_days} hari`);}
 }
 async function handleCallback(q:Callback){
  const m=q.message;if(!m){return answerCallbackQuery(q.id);}
