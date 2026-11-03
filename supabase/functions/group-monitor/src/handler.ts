@@ -114,21 +114,29 @@ async function handleCommand(m:Message){
  if(!m.from)return;
  const parts=(m.text??"").trim().split(/\s+/),cmd=parts[0].split("@")[0].toLowerCase(),arg=parts.slice(1).join(" "),chatId=m.chat.id;
  if(cmd==="/start"||cmd==="/help")return sendMessage(chatId,helpText);
- if(cmd==="/settings") {if(!await requireAdmin(m))return;return showSettings(chatId);}
+ if(cmd==="/settings") {
+  if(!await requireAdmin(m))return;
+  try{return await showSettings(chatId);}
+  catch(error){console.error("settings_command_failed",error);return sendMessage(chatId,"⚠️ Gagal membaca pengaturan. Database belum siap atau migration timer belum dijalankan. Cek Supabase SQL migration.");}
+ }
  if(["/setmin","/setperiod","/setgrace","/autokick"].includes(cmd)){if(!await requireAdmin(m))return;}
  if(cmd==="/setmin"||cmd==="/setperiod"||cmd==="/setgrace"){
   const kind=cmd==="/setmin"?"min":cmd==="/setperiod"?"period":"grace";
   if(kind==="min"){
    const value=Number(arg);
    if(!Number.isSafeInteger(value)||value<0||value>2147483647)return sendMessage(chatId,"Format: /setmin <jumlah pesan> (angka bulat 0 atau lebih)");
-   await updateGroupSetting(chatId,"min_messages",value);
-   return sendMessage(chatId,`✅ Target minimal diperbarui: ${value} pesan.`);
+   try{
+    await updateGroupSetting(chatId,"min_messages",value);
+    return sendMessage(chatId,`✅ Target minimal diperbarui: ${value} pesan.`);
+   }catch(error){console.error("setmin_failed",error);return sendMessage(chatId,"⚠️ Gagal menyimpan target pesan. Cek koneksi database dan izin tabel.");}
   }
   const seconds=parseDuration(arg);
   if(seconds===null)return sendMessage(chatId,"Format durasi: /setperiod 1 menit, /setperiod 1h, /setperiod 1D, /setperiod 1M, /setperiod 1Y. Berlaku juga untuk /setgrace. M = bulan, m = menit.");
   const field=kind==="period"?"evaluation_seconds":"newcomer_grace_seconds";
-  await updateGroupSetting(chatId,field,seconds);
-  return sendMessage(chatId,`✅ ${kind==="period"?"Periode penilaian":"Toleransi member baru"} diperbarui: ${durationLabel(seconds)}.`);
+  try{
+   await updateGroupSetting(chatId,field,seconds);
+   return sendMessage(chatId,`✅ ${kind==="period"?"Periode penilaian":"Toleransi member baru"} diperbarui: ${durationLabel(seconds)}.`);
+  }catch(error){console.error("duration_setting_failed",error);return sendMessage(chatId,"⚠️ Timer gagal disimpan. Kemungkinan migration flexible durations belum dijalankan di Supabase. Jalankan migration 20261103000700 dulu.");}
  }
  if(cmd==="/test")return showTest(chatId);
  if(cmd==="/kickpreview")return showKickPreview(chatId);
