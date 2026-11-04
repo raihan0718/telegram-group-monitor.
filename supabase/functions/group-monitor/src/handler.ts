@@ -40,7 +40,7 @@ Bantuan: @Ipnexoraa`;
 async function requireAdmin(m:Message):Promise<boolean>{
  if(!m.from)return false;
  try{return await isGroupAdmin(m.chat.id,m.from.id);}
- catch{await sendMessage(m.chat.id,"⚠️ VERIFIKASI ADMIN GAGAL\n\nPastikan bot memiliki status admin di grup, lalu coba lagi.");return false;}
+ catch{await sendMessage(m.chat.id,"⚠️ VERIFIKASI ADMIN GAGAL\n\nPastikan bot memiliki status admin di grup, lalu coba lagi.",undefined,m.message_thread_id);return false;}
 }
 async function broadcastFromOwner(m:Message){
  const id=ownerId();if(!id||String(m.from?.id)!==id||!m.text?.trim())return;
