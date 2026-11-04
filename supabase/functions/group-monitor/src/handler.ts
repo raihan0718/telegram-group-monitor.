@@ -113,7 +113,7 @@ Periksa daftar di atas sebelum menjalankan /autokick confirm.`,undefined,threadI
 }
 async function handleCommand(m:Message){
  if(!m.from)return;
- const parts=(m.text??"").trim().split(/\s+/),cmd=parts[0].split("@")[0].toLowerCase(),arg=parts.slice(1).join(" "),chatId=m.chat.id;\n const reply=(text:string)=>reply(text,undefined,m.message_thread_id);
+ const parts=(m.text??"").trim().split(/\s+/),cmd=parts[0].split("@")[0].toLowerCase(),arg=parts.slice(1).join(" "),chatId=m.chat.id;\n const reply=(text:string)=>sendMessage(chatId,text,undefined,m.message_thread_id);
  if(cmd==="/start"||cmd==="/help")return reply(helpText);
  if(cmd==="/settings") {
   if(!await requireAdmin(m))return;
