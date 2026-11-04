@@ -16,7 +16,7 @@ export async function setGroupCommands(){
   await call("setMyCommands",{commands:privateCommands,scope:{type:"all_private_chats"}});
   return call("setMyCommands",{commands:groupCommands,scope:{type:"all_group_chats"}});
 }
-export async function sendMessage(chatId:number,text:string,replyMarkup?:InlineKeyboard){return call("sendMessage",{chat_id:chatId,text,disable_web_page_preview:true,...(replyMarkup?{reply_markup:replyMarkup}:{})});}
+export async function sendMessage(chatId:number,text:string,replyMarkup?:InlineKeyboard,messageThreadId?:number){return call("sendMessage",{chat_id:chatId,text,disable_web_page_preview:true,...(replyMarkup?{reply_markup:replyMarkup}:{}),...(messageThreadId!==undefined?{message_thread_id:messageThreadId}:{})});}
 export async function editMessageText(chatId:number,messageId:number,text:string,replyMarkup?:InlineKeyboard){return call("editMessageText",{chat_id:chatId,message_id:messageId,text,disable_web_page_preview:true,...(replyMarkup?{reply_markup:replyMarkup}:{})});}
 export async function answerCallbackQuery(callbackQueryId:string,text?:string){try{return await call("answerCallbackQuery",{callback_query_id:callbackQueryId,...(text?{text}:{})});}catch(error){console.warn("callback_ack_ignored",error instanceof Error?error.message:String(error));return null;}}
 export async function isGroupAdmin(chatId:number,userId:number):Promise<boolean>{const result=await call("getChatMember",{chat_id:chatId,user_id:userId});return result.status==="creator"||result.status==="administrator";}
