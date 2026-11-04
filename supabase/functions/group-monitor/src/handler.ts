@@ -212,6 +212,8 @@ Pengaturan dan pemantauan hanya bisa dijalankan di dalam grup. Buka grup yang in
 
 Contoh: /settings untuk melihat konfigurasi grup.
 
+📌 PENGINGAT: bot hanya mencatat aktivitas sejak bot bergabung ke grup. Riwayat pesan sebelumnya tidak tersedia.
+
 Butuh bantuan? Hubungi @Ipnexoraa`);
  if(cmd==="/settings")return sendMessage(m.chat.id,"⚙️ PERINTAH KHUSUS GRUP\n━━━━━━━━━━━━━━━━\n/settings hanya bisa digunakan di dalam grup Telegram.\n\nBuka grup yang ingin dikelola, lalu kirim /settings di sana.");
  const groupOnly=["/setmin","/setperiod","/setgrace","/report","/top","/inactive","/inactiveperson","/candidates","/kickpreview","/autokick"];
@@ -225,7 +227,8 @@ Bot berhasil bergabung dan siap mencatat aktivitas grup.
 
 Ketik /help untuk melihat daftar perintah dan panduan penggunaan.
 
-📌 Pesan mulai dihitung sejak bot bergabung.
+📌 PENGINGAT PEMANTAUAN
+Pesan hanya dihitung sejak bot bergabung. Riwayat sebelumnya tidak tersedia, sehingga anggota lama yang belum tercatat tidak otomatis dianggap tidak aktif.
 Bantuan: @Ipnexoraa`);}
 export async function handleUpdate(update:Update){
  if(update.my_chat_member){
@@ -237,7 +240,15 @@ export async function handleUpdate(update:Update){
  if(m.chat.type==="private")return handlePrivateMessage(m);
  if(m.chat.type!=="group"&&m.chat.type!=="supergroup")return;
  if(m.new_chat_members?.length){
-  for(const u of m.new_chat_members){if(!u.is_bot)await recordMemberJoin({chatId:m.chat.id,userId:u.id,username:u.username,firstName:u.first_name??"",lastName:u.last_name,joinedAt:new Date(m.date*1000).toISOString()});}
+  const joined:string[]=[];
+  for(const u of m.new_chat_members){
+   if(u.is_bot)continue;
+   await recordMemberJoin({chatId:m.chat.id,userId:u.id,username:u.username,firstName:u.first_name??"",lastName:u.last_name,joinedAt:new Date(m.date*1000).toISOString()});
+   joined.push(u.username?"@"+u.username:u.first_name??"Anggota baru");
+  }
+  if(joined.length){
+   await sendMessage(m.chat.id,"👋 SELAMAT DATANG "+joined.join(", ")+"\n\n📌 PENGINGAT PEMANTAUAN\nAktivitas pesan hanya dihitung sejak bot bergabung dan mulai memantau grup. Riwayat sebelumnya tidak tersedia, jadi anggota lama yang belum tercatat tidak otomatis dianggap tidak aktif.",undefined,m.message_thread_id);
+  }
  }
  if(!m.from||m.from.is_bot)return;
  if(m.text?.startsWith("/"))return handleCommand(m);
