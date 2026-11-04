@@ -3,7 +3,7 @@ import { isGroupAdmin, kickMember, sendMessage } from "./telegram.ts";
 
 type User={id:number;is_bot?:boolean;username?:string;first_name?:string;last_name?:string};
 type Chat={id:number;type:string;title?:string};
-type Message={message_id:number;date:number;chat:Chat;from?:User;text?:string;new_chat_members?:User[]};
+type Message={message_id:number;date:number;chat:Chat;from?:User;text?:string;new_chat_members?:User[];message_thread_id?:number};
 type ChatMemberUpdate={chat:Chat;new_chat_member:{status:string;user:User};old_chat_member:{status:string;user:User}};
 type Update={message?:Message;my_chat_member?:ChatMemberUpdate};
 
@@ -79,7 +79,7 @@ function durationLabel(seconds:number):string{
  if(seconds%60===0)return seconds/60+"m";
  return seconds+"s";
 }
-async function showSettings(chatId:number){
+async function showSettings(chatId:number,threadId?:number){
  const s=await getGroupSettings(chatId);
  return sendMessage(chatId,`⚙️ PENGATURAN GRUP
 ━━━━━━━━━━━━━━━━
@@ -97,7 +97,7 @@ m = menit  •  h = jam
 d = hari   •  w = minggu
 M = bulan  •  y = tahun`);
 }
-async function showKickPreview(chatId:number){
+async function showKickPreview(chatId:number,threadId?:number){
  const s=await getGroupSettings(chatId),rows=await getCandidates(chatId,s);
  return sendMessage(chatId,`🧹 PRATINJAU AUTO KICK
 ━━━━━━━━━━━━━━━━
@@ -109,51 +109,51 @@ async function showKickPreview(chatId:number){
 ${rows.slice(0,50).map(x=>`• ${displayName(x)} — ${x.period_messages}/${s.min_messages} pesan`).join("\n")||"✅ Tidak ada anggota yang masuk kriteria."}
 
 ℹ️ Belum ada anggota yang dikeluarkan.
-Periksa daftar di atas sebelum menjalankan /autokick confirm.`);
+Periksa daftar di atas sebelum menjalankan /autokick confirm.`,undefined,threadId);
 }
 async function handleCommand(m:Message){
  if(!m.from)return;
- const parts=(m.text??"").trim().split(/\s+/),cmd=parts[0].split("@")[0].toLowerCase(),arg=parts.slice(1).join(" "),chatId=m.chat.id;
- if(cmd==="/start"||cmd==="/help")return sendMessage(chatId,helpText);
+ const parts=(m.text??"").trim().split(/\s+/),cmd=parts[0].split("@")[0].toLowerCase(),arg=parts.slice(1).join(" "),chatId=m.chat.id;\n const reply=(text:string)=>reply(text,undefined,m.message_thread_id);
+ if(cmd==="/start"||cmd==="/help")return reply(helpText);
  if(cmd==="/settings") {
   if(!await requireAdmin(m))return;
-  try{return await showSettings(chatId);}
-  catch(error){console.error("settings_command_failed",error);return sendMessage(chatId,"⚠️ PENGATURAN GAGAL DIMUAT\n\nBot tidak dapat membaca konfigurasi grup. Coba lagi beberapa saat.");}
+  try{return await showSettings(chatId,m.message_thread_id);}
+  catch(error){console.error("settings_command_failed",error);return reply("⚠️ PENGATURAN GAGAL DIMUAT\n\nBot tidak dapat membaca konfigurasi grup. Coba lagi beberapa saat.");}
  }
  if(["/setmin","/setperiod","/setgrace","/autokick"].includes(cmd)){if(!await requireAdmin(m))return;}
  if(cmd==="/setmin"||cmd==="/setperiod"||cmd==="/setgrace"){
   const kind=cmd==="/setmin"?"min":cmd==="/setperiod"?"period":"grace";
   if(kind==="min"){
    const value=Number(arg);
-   if(!Number.isSafeInteger(value)||value<0||value>2147483647)return sendMessage(chatId,"⚠️ FORMAT TIDAK VALID\n\nGunakan angka bulat 0 atau lebih.\nContoh: /setmin 25");
+   if(!Number.isSafeInteger(value)||value<0||value>2147483647)return reply("⚠️ FORMAT TIDAK VALID\n\nGunakan angka bulat 0 atau lebih.\nContoh: /setmin 25");
    try{
     await updateGroupSetting(chatId,"min_messages",value);
-    return sendMessage(chatId,`✅ TARGET DIPERBARUI\n━━━━━━━━━━━━━━━━\nTarget minimal: ${value} pesan\n\nPerubahan berhasil disimpan.`);
-   }catch(error){console.error("setmin_failed",error);return sendMessage(chatId,"⚠️ TARGET GAGAL DISIMPAN\n\nPeriksa koneksi database dan izin bot, lalu coba lagi.");}
+    return reply(`✅ TARGET DIPERBARUI\n━━━━━━━━━━━━━━━━\nTarget minimal: ${value} pesan\n\nPerubahan berhasil disimpan.`);
+   }catch(error){console.error("setmin_failed",error);return reply("⚠️ TARGET GAGAL DISIMPAN\n\nPeriksa koneksi database dan izin bot, lalu coba lagi.");}
   }
   const seconds=parseDuration(arg);
-  if(seconds===null)return sendMessage(chatId,"⚠️ FORMAT DURASI TIDAK VALID\n\nContoh penggunaan:\n/setperiod 30m\n/setperiod 12h\n/setperiod 7d\n/setperiod 1M\n\nBerlaku juga untuk /setgrace. m = menit, M = bulan.");
+  if(seconds===null)return reply("⚠️ FORMAT DURASI TIDAK VALID\n\nContoh penggunaan:\n/setperiod 30m\n/setperiod 12h\n/setperiod 7d\n/setperiod 1M\n\nBerlaku juga untuk /setgrace. m = menit, M = bulan.");
   const field=kind==="period"?"evaluation_seconds":"newcomer_grace_seconds";
   try{
    await updateGroupSetting(chatId,field,seconds);
-   return sendMessage(chatId,`✅ PENGATURAN DIPERBARUI
+   return reply(`✅ PENGATURAN DIPERBARUI
 ━━━━━━━━━━━━━━━━
 ${kind==="period"?"⏱ Periode penilaian":"🆕 Toleransi member"}: ${durationLabel(seconds)}
 
 Perubahan berhasil disimpan.`);
-  }catch(error){console.error("duration_setting_failed",error);const detail=(error instanceof Error?error.message:String(error)).slice(0,350);return sendMessage(chatId,`⚠️ PENGATURAN GAGAL DISIMPAN
+  }catch(error){console.error("duration_setting_failed",error);const detail=(error instanceof Error?error.message:String(error)).slice(0,350);return reply(`⚠️ PENGATURAN GAGAL DISIMPAN
 ━━━━━━━━━━━━━━━━
 Detail: ${detail}
 
 Coba lagi beberapa saat. Jika masalah berulang, kirim detail ini ke pengelola bot.`);}
  }
- if(cmd==="/kickpreview")return showKickPreview(chatId);
+ if(cmd==="/kickpreview")return showKickPreview(chatId,m.message_thread_id);
  if(cmd==="/autokick"){
-  if(arg!=="confirm")return sendMessage(chatId,"🛡️ KONFIRMASI AUTO KICK\n━━━━━━━━━━━━━━━━\nPerintah ini akan mengeluarkan anggota yang masuk kriteria.\n\n1. Periksa daftar dengan /kickpreview\n2. Jika sudah sesuai, jalankan /autokick confirm");
+  if(arg!=="confirm")return reply("🛡️ KONFIRMASI AUTO KICK\n━━━━━━━━━━━━━━━━\nPerintah ini akan mengeluarkan anggota yang masuk kriteria.\n\n1. Periksa daftar dengan /kickpreview\n2. Jika sudah sesuai, jalankan /autokick confirm");
   const s=await getGroupSettings(chatId),rows=await getCandidates(chatId,s);
   let done=0,failed=0;
   for(const member of rows.slice(0,50)){try{await kickMember(chatId,member.user_id);done++;}catch{failed++;}}
-  return sendMessage(chatId,`🧹 AUTO KICK SELESAI
+  return reply(`🧹 AUTO KICK SELESAI
 ━━━━━━━━━━━━━━━━
 ✅ Berhasil dikeluarkan  ${done}
 ⚠️ Gagal                 ${failed}
@@ -163,7 +163,7 @@ Silakan periksa kembali daftar anggota grup.`);
  }
  if(cmd==="/inactiveperson"||cmd==="/candidates"){
   const s=await getGroupSettings(chatId),rows=await getCandidates(chatId,s);
-  return sendMessage(chatId,`👤 DAFTAR INACTIVE PERSON
+  return reply(`👤 DAFTAR INACTIVE PERSON
 ━━━━━━━━━━━━━━━━
 ⏱ Periode   ${durationLabel(s.evaluation_seconds)}
 🆕 Toleransi ${durationLabel(s.newcomer_grace_seconds)}
@@ -172,16 +172,16 @@ Silakan periksa kembali daftar anggota grup.`);
 
 ${rows.slice(0,50).map(x=>`• ${displayName(x)} — ${x.period_messages}/${s.min_messages} pesan`).join("\n")||"✅ Tidak ada anggota yang masuk kriteria."}`);
  }
- if(cmd==="/top"){const rows=await getTopMembers(chatId);return sendMessage(chatId,`🏆 10 ANGGOTA TERAKTIF
+ if(cmd==="/top"){const rows=await getTopMembers(chatId);return reply(`🏆 10 ANGGOTA TERAKTIF
 ━━━━━━━━━━━━━━━━
 ${rows.map((x,i)=>`${i+1}. ${displayName(x)} — ${x.total_messages} pesan`).join("\n")||"Belum ada aktivitas yang tercatat."}`);}
- if(cmd==="/inactive"){const s=await getGroupSettings(chatId),days=Math.max(1,Math.ceil(s.evaluation_seconds/86400)),rows=await getInactiveMembers(chatId,days);return sendMessage(chatId,`💤 ANGGOTA TIDAK AKTIF
+ if(cmd==="/inactive"){const s=await getGroupSettings(chatId),days=Math.max(1,Math.ceil(s.evaluation_seconds/86400)),rows=await getInactiveMembers(chatId,days);return reply(`💤 ANGGOTA TIDAK AKTIF
 ━━━━━━━━━━━━━━━━
 ⏱ Batas tidak aktif: ${durationLabel(s.evaluation_seconds)}
 👥 Ditemukan: ${rows.length} anggota
 
 ${rows.map(x=>`• ${displayName(x)}`).join("\n")||"✅ Tidak ada anggota yang terdeteksi tidak aktif."}`);}
- if(cmd==="/report"){const [s,report]=await Promise.all([getGroupSettings(chatId),getGroupReport(chatId)]);return sendMessage(chatId,`📊 RINGKASAN GRUP
+ if(cmd==="/report"){const [s,report]=await Promise.all([getGroupSettings(chatId),getGroupReport(chatId)]);return reply(`📊 RINGKASAN GRUP
 ━━━━━━━━━━━━━━━━
 👥 Anggota tercatat   ${report.member_count}
 💬 Total pesan        ${report.total_messages}
