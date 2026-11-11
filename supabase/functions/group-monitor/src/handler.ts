@@ -140,10 +140,10 @@ async function handleCommand(m:Message){
   try{
    if(cmd==="/autokickexclude"){
     await Promise.all(usernames.map(x=>addAutokickExclusion(chatId,x)));
-    return reply("✅ WHITELIST DIPERBARUI\n━━━━━━━━━━━━━━━━\n"+usernames.map(x=>"• @"+x).join("\\n")+"\n\nSemua username di atas dikecualikan dari Auto Kick.");
+    return reply("✅ WHITELIST DIPERBARUI\n━━━━━━━━━━━━━━━━\n"+usernames.map(x=>"• @"+x).join("\n")+"\n\nSemua username di atas dikecualikan dari Auto Kick.");
    }
    await Promise.all(usernames.map(x=>removeAutokickExclusion(chatId,x)));
-   return reply("✅ WHITELIST DIPERBARUI\n━━━━━━━━━━━━━━━━\n"+usernames.map(x=>"• @"+x).join("\\n")+"\n\nSemua username di atas dihapus dari pengecualian.");
+   return reply("✅ WHITELIST DIPERBARUI\n━━━━━━━━━━━━━━━━\n"+usernames.map(x=>"• @"+x).join("\n")+"\n\nSemua username di atas dihapus dari pengecualian.");
   }catch(error){console.error("autokick_bulk_exclusion_update_failed",error);return reply("⚠️ DAFTAR PENGECUALIAN GAGAL DIPERBARUI. Coba lagi.");}
  }
  if(cmd==="/setmin"||cmd==="/setperiod"||cmd==="/setgrace"){
