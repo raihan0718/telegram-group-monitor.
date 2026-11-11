@@ -1,4 +1,4 @@
-import { getCandidates, getGroupSettings, getGroupReport, getInactiveMembers, getTopMembers, getMonitoredGroupIds, recordMemberJoin, recordMessage, updateGroupSetting } from "./database.ts";
+import { addAutokickExclusion, getAutokickExclusions, getCandidates, getGroupSettings, getGroupReport, getInactiveMembers, getTopMembers, getMonitoredGroupIds, recordMemberJoin, recordMessage, removeAutokickExclusion, updateGroupSetting } from "./database.ts";
 import { isGroupAdmin, kickMember, sendMessage } from "./telegram.ts";
 
 type User={id:number;is_bot?:boolean;username?:string;first_name?:string;last_name?:string};
@@ -97,14 +97,21 @@ m = menit  •  h = jam
 d = hari   •  w = minggu
 M = bulan  •  y = tahun`,undefined,threadId);
 }
+function normalizeUsername(value:string){return value.replace(/^@/,"").trim().toLowerCase();}
+function validUsername(value:string){return /^[a-z0-9_]{5,32}$/i.test(normalizeUsername(value));}
+async function getKickCandidates(chatId:number,s:Awaited<ReturnType<typeof getGroupSettings>>){
+ const [rows,excluded]=await Promise.all([getCandidates(chatId,s),getAutokickExclusions(chatId)]);
+ const set=new Set(excluded.map(normalizeUsername));
+ return rows.filter(x=>!x.username||!set.has(normalizeUsername(x.username)));
+}
 async function showKickPreview(chatId:number,threadId?:number){
- const s=await getGroupSettings(chatId),rows=await getCandidates(chatId,s);
+ const s=await getGroupSettings(chatId),[rows,excluded]=await Promise.all([getKickCandidates(chatId,s),getAutokickExclusions(chatId)]);
  return sendMessage(chatId,`🧹 PRATINJAU AUTO KICK
 ━━━━━━━━━━━━━━━━
 🎯 Target minimal     ${s.min_messages} pesan
 ⏱ Periode penilaian  ${durationLabel(s.evaluation_seconds)}
 🆕 Toleransi member   ${durationLabel(s.newcomer_grace_seconds)}
-👥 Calon terdeteksi   ${rows.length}
+🛡️ Dikecualikan       ${excluded.length} username\n👥 Calon terdeteksi   ${rows.length}
 
 ${rows.slice(0,50).map(x=>`• ${displayName(x)} — ${x.period_messages}/${s.min_messages} pesan`).join("\n")||"✅ Tidak ada anggota yang masuk kriteria."}
 
@@ -150,14 +157,33 @@ Coba lagi beberapa saat. Jika masalah berulang, kirim detail ini ke pengelola bo
  }
  if(cmd==="/kickpreview")return showKickPreview(chatId,m.message_thread_id);
  if(cmd==="/autokick"){
-  if(arg!=="confirm")return reply("🛡️ KONFIRMASI AUTO KICK\n━━━━━━━━━━━━━━━━\nPerintah ini akan mengeluarkan anggota yang masuk kriteria.\n\n1. Periksa daftar dengan /kickpreview\n2. Jika sudah sesuai, jalankan /autokick confirm");
-  const s=await getGroupSettings(chatId),rows=await getCandidates(chatId,s);
+  const [sub,...values]=parts.slice(1);
+  if(sub==="exclude"||sub==="include"){
+   const username=values[0]??"";
+   if(!validUsername(username))return reply("⚠️ FORMAT USERNAME TIDAK VALID\\n\\nGunakan username Telegram tanpa spasi.\\nContoh: /autokick exclude @username");
+   const clean=normalizeUsername(username);
+   try{
+    if(sub==="exclude"){
+     await addAutokickExclusion(chatId,clean);
+     return reply(`✅ WHITELIST DIPERBARUI\\n\\n@${clean} sekarang dikecualikan dari Auto Kick.`);
+    }
+    await removeAutokickExclusion(chatId,clean);
+    return reply(`✅ WHITELIST DIPERBARUI\\n\\n@${clean} dihapus dari pengecualian Auto Kick.`);
+   }catch(error){console.error("autokick_exclusion_update_failed",error);return reply("⚠️ DAFTAR PENGECUALIAN GAGAL DIPERBARUI. Coba lagi.");}
+  }
+  if(sub==="list"){
+   const excluded=await getAutokickExclusions(chatId);
+   return reply("🛡️ WHITELIST AUTO KICK\\n━━━━━━━━━━━━━━━━\\n"+(excluded.map(x=>"• @"+x).join("\\n")||"Belum ada username yang dikecualikan."));
+  }
+  if(sub!=="confirm")return reply("🛡️ PENGATURAN AUTO KICK\\n━━━━━━━━━━━━━━━━\\n/autokick exclude @username — tambahkan pengecualian\\n/autokick include @username — hapus pengecualian\\n/autokick list — lihat daftar pengecualian\\n/kickpreview — pratinjau calon kick\\n/autokick confirm — jalankan Auto Kick");
+  const s=await getGroupSettings(chatId),rows=await getKickCandidates(chatId,s),excluded=await getAutokickExclusions(chatId);
   let done=0,failed=0;
   for(const member of rows.slice(0,50)){try{await kickMember(chatId,member.user_id);done++;}catch{failed++;}}
   return reply(`🧹 AUTO KICK SELESAI
 ━━━━━━━━━━━━━━━━
 ✅ Berhasil dikeluarkan  ${done}
 ⚠️ Gagal                 ${failed}
+🛡️ Username dikecualikan ${excluded.length}
 📋 Batas pemrosesan      50 anggota
 
 Silakan periksa kembali daftar anggota grup.`);
