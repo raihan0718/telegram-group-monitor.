@@ -25,8 +25,8 @@ const helpText=`📊 GROUP MONITOR
 
 🛡️ MODERASI
 /kickpreview — periksa calon Auto Kick
-/autokickexclude @user1 @user2 @user3 — kecualikan banyak username
-/autokickinclude @user1 @user2 — hapus dari pengecualian
+/autokickexclude @user1 @user2 @user3 — tambah whitelist Auto Kick
+/autokickinclude @user1 @user2 — hapus dari whitelist
 /autokick list — lihat daftar pengecualian
 /autokick confirm — jalankan setelah pratinjau
 
@@ -101,7 +101,7 @@ d = hari   •  w = minggu
 M = bulan  •  y = tahun`,undefined,threadId);
 }
 function normalizeUsername(value:string){return value.replace(/^@/,"").trim().toLowerCase();}
-function validUsername(value:string){return /^[a-z0-9_]{5,32}$/i.test(normalizeUsername(value));}
+function validUsername(value:string){return /^[a-z0-9_]{1,32}$/i.test(normalizeUsername(value));}
 async function getKickCandidates(chatId:number,s:Awaited<ReturnType<typeof getGroupSettings>>){
  const [rows,excluded]=await Promise.all([getCandidates(chatId,s),getAutokickExclusions(chatId)]);
  const set=new Set(excluded.map(normalizeUsername));
@@ -134,9 +134,9 @@ async function handleCommand(m:Message){
  if(["/setmin","/setperiod","/setgrace","/autokick","/autokickexclude","/autokickinclude"].includes(cmd)){if(!await requireAdmin(m))return;}
  if(cmd==="/autokickexclude"||cmd==="/autokickinclude"){
   const usernames=[...new Set(parts.slice(1).map(normalizeUsername))];
-  if(!usernames.length)return reply("⚠️ MASUKKAN USERNAME\n\nContoh: /autokickexclude @user1 @user2 @user3");
+  if(!usernames.length)return reply("⚠️ FORMAT PERINTAH\n\nMasukkan satu atau lebih username.\nContoh: /autokickexclude @user1 @user2 @user3");
   const invalid=usernames.filter(x=>!validUsername(x));
-  if(invalid.length)return reply("⚠️ USERNAME TIDAK VALID\n\nPeriksa: "+invalid.map(x=>"@"+x).join(", ")+"\n\nGunakan username Telegram 5–32 karakter.");
+  if(invalid.length)return reply("⚠️ USERNAME TIDAK VALID\n\nPeriksa: "+invalid.map(x=>"@"+x).join(", ")+"\n\nGunakan huruf, angka, atau underscore (1–32 karakter).");
   try{
    if(cmd==="/autokickexclude"){
     await Promise.all(usernames.map(x=>addAutokickExclusion(chatId,x)));
@@ -176,23 +176,24 @@ Coba lagi beberapa saat. Jika masalah berulang, kirim detail ini ke pengelola bo
  if(cmd==="/autokick"){
   const [sub,...values]=parts.slice(1);
   if(sub==="exclude"||sub==="include"){
-   const username=values[0]??"";
-   if(!validUsername(username))return reply("⚠️ FORMAT USERNAME TIDAK VALID\n\nGunakan username Telegram tanpa spasi.\nContoh: /autokick exclude @username");
-   const clean=normalizeUsername(username);
+   const usernames=[...new Set(values.map(normalizeUsername))];
+   if(!usernames.length)return reply("⚠️ MASUKKAN USERNAME\\n\\nContoh: /autokick exclude @user1 @user2 @user3");
+   const invalid=usernames.filter(x=>!validUsername(x));
+   if(invalid.length)return reply("⚠️ FORMAT USERNAME TIDAK VALID\\n\\nPeriksa: "+invalid.map(x=>"@"+x).join(", ")+"\\n\\nGunakan huruf, angka, atau underscore (1–32 karakter).");
    try{
     if(sub==="exclude"){
-     await addAutokickExclusion(chatId,clean);
-     return reply(`✅ WHITELIST DIPERBARUI\n\n@${clean} sekarang dikecualikan dari Auto Kick.`);
+     await Promise.all(usernames.map(x=>addAutokickExclusion(chatId,x)));
+     return reply("✅ WHITELIST DIPERBARUI\\n━━━━━━━━━━━━━━━━\\n"+usernames.map(x=>"• @"+x).join("\\n")+"\\n\\nSemua username di atas dikecualikan dari Auto Kick.");
     }
-    await removeAutokickExclusion(chatId,clean);
-    return reply(`✅ WHITELIST DIPERBARUI\n\n@${clean} dihapus dari pengecualian Auto Kick.`);
-   }catch(error){console.error("autokick_exclusion_update_failed",error);return reply("⚠️ DAFTAR PENGECUALIAN GAGAL DIPERBARUI. Coba lagi.");}
+    await Promise.all(usernames.map(x=>removeAutokickExclusion(chatId,x)));
+    return reply("✅ WHITELIST DIPERBARUI\\n━━━━━━━━━━━━━━━━\\n"+usernames.map(x=>"• @"+x).join("\\n")+"\\n\\nSemua username di atas dihapus dari whitelist.");
+   }catch(error){console.error("autokick_exclusion_update_failed",error);return reply("⚠️ WHITELIST GAGAL DIPERBARUI. Coba lagi.");}
   }
   if(sub==="list"){
    const excluded=await getAutokickExclusions(chatId);
    return reply("🛡️ WHITELIST AUTO KICK\n━━━━━━━━━━━━━━━━\n"+(excluded.map(x=>"• @"+x).join("\n")||"Belum ada username yang dikecualikan."));
   }
-  if(sub!=="confirm")return reply("🛡️ PENGATURAN AUTO KICK\n━━━━━━━━━━━━━━━━\n/autokick exclude @username — tambahkan pengecualian\n/autokick include @username — hapus pengecualian\n/autokick list — lihat daftar pengecualian\n/kickpreview — pratinjau calon kick\n/autokick confirm — jalankan Auto Kick");
+  if(sub!=="confirm")return reply("🛡️ PENGATURAN AUTO KICK\n━━━━━━━━━━━━━━━━\n/autokickexclude @user1 @user2 — tambah whitelist\n/autokickinclude @user1 @user2 — hapus whitelist\n/autokick list — lihat daftar pengecualian\n/kickpreview — pratinjau calon kick\n/autokick confirm — jalankan Auto Kick");
   const s=await getGroupSettings(chatId),rows=await getKickCandidates(chatId,s),excluded=await getAutokickExclusions(chatId);
   let done=0,failed=0;
   for(const member of rows.slice(0,50)){try{await kickMember(chatId,member.user_id);done++;}catch{failed++;}}
