@@ -144,7 +144,7 @@ async function handleCommand(m:Message){
    }
    await Promise.all(usernames.map(x=>removeAutokickExclusion(chatId,x)));
    return reply("✅ WHITELIST DIPERBARUI\n━━━━━━━━━━━━━━━━\n"+usernames.map(x=>"• @"+x).join("\n")+"\n\nSemua username di atas dihapus dari pengecualian.");
-  }catch(error){console.error("autokick_bulk_exclusion_update_failed",error);return reply("⚠️ DAFTAR PENGECUALIAN GAGAL DIPERBARUI. Coba lagi.");}
+  }catch(error){console.error("autokick_bulk_exclusion_update_failed",error);const detail=(error instanceof Error?error.message:String(error)).slice(0,300);return reply("⚠️ WHITELIST GAGAL DIPERBARUI\\n━━━━━━━━━━━━━━━━\\n"+detail+"\\n\\nPastikan tabel autokick_exclusions sudah dibuat di Supabase.");}
  }
  if(cmd==="/setmin"||cmd==="/setperiod"||cmd==="/setgrace"){
   const kind=cmd==="/setmin"?"min":cmd==="/setperiod"?"period":"grace";
