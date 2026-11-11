@@ -25,6 +25,9 @@ const helpText=`📊 GROUP MONITOR
 
 🛡️ MODERASI
 /kickpreview — periksa calon Auto Kick
+/autokickexclude @user1 @user2 @user3 — kecualikan banyak username
+/autokickinclude @user1 @user2 — hapus dari pengecualian
+/autokick list — lihat daftar pengecualian
 /autokick confirm — jalankan setelah pratinjau
 
 /help — tampilkan panduan ini
@@ -128,7 +131,21 @@ async function handleCommand(m:Message){
   try{return await showSettings(chatId,m.message_thread_id);}
   catch(error){console.error("settings_command_failed",error);return reply("⚠️ PENGATURAN GAGAL DIMUAT\n\nBot tidak dapat membaca konfigurasi grup. Coba lagi beberapa saat.");}
  }
- if(["/setmin","/setperiod","/setgrace","/autokick"].includes(cmd)){if(!await requireAdmin(m))return;}
+ if(["/setmin","/setperiod","/setgrace","/autokick","/autokickexclude","/autokickinclude"].includes(cmd)){if(!await requireAdmin(m))return;}
+ if(cmd==="/autokickexclude"||cmd==="/autokickinclude"){
+  const usernames=[...new Set(parts.slice(1).map(normalizeUsername))];
+  if(!usernames.length)return reply("⚠️ MASUKKAN USERNAME\n\nContoh: /autokickexclude @user1 @user2 @user3");
+  const invalid=usernames.filter(x=>!validUsername(x));
+  if(invalid.length)return reply("⚠️ USERNAME TIDAK VALID\n\nPeriksa: "+invalid.map(x=>"@"+x).join(", ")+"\n\nGunakan username Telegram 5–32 karakter.");
+  try{
+   if(cmd==="/autokickexclude"){
+    await Promise.all(usernames.map(x=>addAutokickExclusion(chatId,x)));
+    return reply("✅ WHITELIST DIPERBARUI\n━━━━━━━━━━━━━━━━\n"+usernames.map(x=>"• @"+x).join("\\n")+"\n\nSemua username di atas dikecualikan dari Auto Kick.");
+   }
+   await Promise.all(usernames.map(x=>removeAutokickExclusion(chatId,x)));
+   return reply("✅ WHITELIST DIPERBARUI\n━━━━━━━━━━━━━━━━\n"+usernames.map(x=>"• @"+x).join("\\n")+"\n\nSemua username di atas dihapus dari pengecualian.");
+  }catch(error){console.error("autokick_bulk_exclusion_update_failed",error);return reply("⚠️ DAFTAR PENGECUALIAN GAGAL DIPERBARUI. Coba lagi.");}
+ }
  if(cmd==="/setmin"||cmd==="/setperiod"||cmd==="/setgrace"){
   const kind=cmd==="/setmin"?"min":cmd==="/setperiod"?"period":"grace";
   if(kind==="min"){
@@ -242,7 +259,7 @@ Contoh: /settings untuk melihat konfigurasi grup.
 
 Butuh bantuan? Hubungi @Ipnexoraa`);
  if(cmd==="/settings")return sendMessage(m.chat.id,"⚙️ PERINTAH KHUSUS GRUP\n━━━━━━━━━━━━━━━━\n/settings hanya bisa digunakan di dalam grup Telegram.\n\nBuka grup yang ingin dikelola, lalu kirim /settings di sana.");
- const groupOnly=["/setmin","/setperiod","/setgrace","/report","/top","/inactive","/inactiveperson","/candidates","/kickpreview","/autokick"];
+ const groupOnly=["/setmin","/setperiod","/setgrace","/report","/top","/inactive","/inactiveperson","/candidates","/kickpreview","/autokick","/autokickexclude","/autokickinclude"];
  if(groupOnly.includes(cmd))return sendMessage(m.chat.id,"📍 PERINTAH INI HANYA BERLAKU DI GRUP\n━━━━━━━━━━━━━━━━\nPerintah tersebut harus dikirim langsung di grup yang ingin dikelola.\n\nBuka grup tujuan, lalu jalankan perintah di sana. Ketik /help di grup untuk melihat panduan lengkap.");
  return sendMessage(m.chat.id,"Perintah tidak dikenali. Ketik /help untuk melihat panduan penggunaan bot.");
 }
