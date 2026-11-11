@@ -29,6 +29,16 @@ export async function migrateGroupChatId(oldChatId:number,newChatId:number){
 export async function recordMemberJoin(m:{chatId:number;userId:number;username?:string;firstName:string;lastName?:string;joinedAt:string}){
   return rest("rpc/record_group_member_join",{method:"POST",body:JSON.stringify({p_chat_id:m.chatId,p_user_id:m.userId,p_username:m.username??null,p_first_name:m.firstName,p_last_name:m.lastName??null,p_joined_at:m.joinedAt})});
 }
+export async function getAutokickExclusions(chatId:number):Promise<string[]>{
+  const rows=await rest(`autokick_exclusions?chat_id=eq.${chatId}&select=username&order=username.asc`) as Array<{username:string}>;
+  return rows.map(row=>row.username);
+}
+export async function addAutokickExclusion(chatId:number,username:string){
+  return rest("autokick_exclusions",{method:"POST",headers:{Prefer:"resolution=ignore-duplicates,return=minimal"},body:JSON.stringify({chat_id:chatId,username:username.replace(/^@/,"").toLowerCase()})});
+}
+export async function removeAutokickExclusion(chatId:number,username:string){
+  return rest(`autokick_exclusions?chat_id=eq.${chatId}&username=eq.${encodeURIComponent(username.replace(/^@/,"").toLowerCase())}`,{method:"DELETE",headers:{Prefer:"return=minimal"}});
+}
 export async function getCandidates(chatId:number,s:GroupSettings){
   return await rest("rpc/get_group_inactive_people",{method:"POST",body:JSON.stringify({p_chat_id:chatId,p_min_messages:s.min_messages,p_evaluation_seconds:s.evaluation_seconds,p_grace_seconds:s.newcomer_grace_seconds})}) as Array<{user_id:number;username:string|null;first_name:string;period_messages:number;joined_at:string}>;
 }
