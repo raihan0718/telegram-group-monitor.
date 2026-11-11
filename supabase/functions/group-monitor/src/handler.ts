@@ -160,22 +160,22 @@ Coba lagi beberapa saat. Jika masalah berulang, kirim detail ini ke pengelola bo
   const [sub,...values]=parts.slice(1);
   if(sub==="exclude"||sub==="include"){
    const username=values[0]??"";
-   if(!validUsername(username))return reply("⚠️ FORMAT USERNAME TIDAK VALID\\n\\nGunakan username Telegram tanpa spasi.\\nContoh: /autokick exclude @username");
+   if(!validUsername(username))return reply("⚠️ FORMAT USERNAME TIDAK VALID\n\nGunakan username Telegram tanpa spasi.\nContoh: /autokick exclude @username");
    const clean=normalizeUsername(username);
    try{
     if(sub==="exclude"){
      await addAutokickExclusion(chatId,clean);
-     return reply(`✅ WHITELIST DIPERBARUI\\n\\n@${clean} sekarang dikecualikan dari Auto Kick.`);
+     return reply(`✅ WHITELIST DIPERBARUI\n\n@${clean} sekarang dikecualikan dari Auto Kick.`);
     }
     await removeAutokickExclusion(chatId,clean);
-    return reply(`✅ WHITELIST DIPERBARUI\\n\\n@${clean} dihapus dari pengecualian Auto Kick.`);
+    return reply(`✅ WHITELIST DIPERBARUI\n\n@${clean} dihapus dari pengecualian Auto Kick.`);
    }catch(error){console.error("autokick_exclusion_update_failed",error);return reply("⚠️ DAFTAR PENGECUALIAN GAGAL DIPERBARUI. Coba lagi.");}
   }
   if(sub==="list"){
    const excluded=await getAutokickExclusions(chatId);
-   return reply("🛡️ WHITELIST AUTO KICK\\n━━━━━━━━━━━━━━━━\\n"+(excluded.map(x=>"• @"+x).join("\\n")||"Belum ada username yang dikecualikan."));
+   return reply("🛡️ WHITELIST AUTO KICK\n━━━━━━━━━━━━━━━━\n"+(excluded.map(x=>"• @"+x).join("\n")||"Belum ada username yang dikecualikan."));
   }
-  if(sub!=="confirm")return reply("🛡️ PENGATURAN AUTO KICK\\n━━━━━━━━━━━━━━━━\\n/autokick exclude @username — tambahkan pengecualian\\n/autokick include @username — hapus pengecualian\\n/autokick list — lihat daftar pengecualian\\n/kickpreview — pratinjau calon kick\\n/autokick confirm — jalankan Auto Kick");
+  if(sub!=="confirm")return reply("🛡️ PENGATURAN AUTO KICK\n━━━━━━━━━━━━━━━━\n/autokick exclude @username — tambahkan pengecualian\n/autokick include @username — hapus pengecualian\n/autokick list — lihat daftar pengecualian\n/kickpreview — pratinjau calon kick\n/autokick confirm — jalankan Auto Kick");
   const s=await getGroupSettings(chatId),rows=await getKickCandidates(chatId,s),excluded=await getAutokickExclusions(chatId);
   let done=0,failed=0;
   for(const member of rows.slice(0,50)){try{await kickMember(chatId,member.user_id);done++;}catch{failed++;}}
